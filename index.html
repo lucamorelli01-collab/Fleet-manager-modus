@@ -293,6 +293,10 @@ function render() {
   DATA.kmLog        = toArr(DATA.kmLog);
   DATA.gomme        = toArr(DATA.gomme);
   if (!DATA.nextId) DATA.nextId = {scadenza:10,manutenzione:1,km:1,gomma:1};
+  // Prima render: pulisce spinner
+  if (!document.getElementById("header")) {
+    document.getElementById("app").innerHTML = "";
+  }
   renderHeader();
   renderContent();
 }
