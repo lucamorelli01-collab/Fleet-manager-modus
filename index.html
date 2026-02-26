@@ -6,14 +6,10 @@
   <title>Fleet Manager</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 
-  <!-- Firebase -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // 🔧 INSERISCI QUI LA TUA CONFIGURAZIONE FIREBASE
-    // ──────────────────────────────────────────────────────────────────────────
+  <!-- Firebase compat SDK (works on GitHub Pages without bundler) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script>
     const firebaseConfig = {
       apiKey:            "AIzaSyBsa6GbMjum5VOfTyz6vZXdzYvJz_AIEF8",
       authDomain:        "fleet-manager-modus.firebaseapp.com",
@@ -23,15 +19,14 @@
       messagingSenderId: "620267510370",
       appId:             "1:620267510370:web:5333e1e07b73214bd50f3b"
     };
-    // ──────────────────────────────────────────────────────────────────────────
 
-    const app = initializeApp(firebaseConfig);
-    const db  = getDatabase(app);
-    const dbRef = ref(db, "fleet");
+    firebase.initializeApp(firebaseConfig);
+    const db     = firebase.database();
+    const dbRef  = db.ref("fleet");
 
     window._firebaseReady = true;
-    window._fbSave  = (data) => set(dbRef, data);
-    window._fbWatch = (cb)   => onValue(dbRef, snap => cb(snap.exists() ? snap.val() : null));
+    window._fbSave  = (data) => dbRef.set(data);
+    window._fbWatch = (cb)   => dbRef.on("value", snap => cb(snap.exists() ? snap.val() : null));
   </script>
 
   <style>
