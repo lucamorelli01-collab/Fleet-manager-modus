@@ -26,7 +26,23 @@
 
     window._firebaseReady = true;
     window._fbSave  = (data) => dbRef.set(data);
-    window._fbWatch = (cb)   => dbRef.on("value", snap => cb(snap.exists() ? snap.val() : null));
+    window._fbWatch = (cb)   => dbRef.on("value", snap => {
+      if (!snap.exists()) { cb(null); return; }
+      const val = snap.val();
+      // Firebase può restituire oggetti invece di array — normalizziamo
+      const toArray = (v) => {
+        if (!v) return [];
+        if (Array.isArray(v)) return v;
+        return Object.values(v);
+      };
+      val.vehicles     = toArray(val.vehicles);
+      val.scadenze     = toArray(val.scadenze);
+      val.manutenzioni = toArray(val.manutenzioni);
+      val.kmLog        = toArray(val.kmLog);
+      val.gomme        = toArray(val.gomme);
+      if (!val.nextId) val.nextId = {scadenza:10,manutenzione:1,km:1,gomma:1};
+      cb(val);
+    });
   </script>
 
   <style>
