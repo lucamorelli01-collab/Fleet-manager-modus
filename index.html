@@ -334,6 +334,15 @@ function importExcel(file) {
 // RENDER ENGINE
 // ═══════════════════════════════════════════════════════════════════════════
 function render() {
+  // Sanitize — garantisce che tutti gli array esistano sempre
+  if (!DATA) DATA = defaultData();
+  const toArr = (v) => { if (!v) return []; if (Array.isArray(v)) return v; return Object.values(v).filter(x => x && typeof x === "object"); };
+  DATA.vehicles     = toArr(DATA.vehicles);
+  DATA.scadenze     = toArr(DATA.scadenze);
+  DATA.manutenzioni = toArr(DATA.manutenzioni);
+  DATA.kmLog        = toArr(DATA.kmLog);
+  DATA.gomme        = toArr(DATA.gomme);
+  if (!DATA.nextId) DATA.nextId = {scadenza:10,manutenzione:1,km:1,gomma:1};
   renderHeader();
   renderContent();
 }
