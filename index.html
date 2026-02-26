@@ -754,20 +754,64 @@ function submitEditVehicle(vid) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BOOT — wait for Firebase then load data
+// BOOT
 // ═══════════════════════════════════════════════════════════════════════════
 function boot() {
-  if (!window._firebaseReady || !window._fbWatch) {
-    setTimeout(boot, 100); return;
+  try {
+    const db    = firebase.database();
+    const dbRef = db.ref("fleet");
+
+    // Sovrascrivi i riferimenti firebase con quelli diretti
+    window._fbSave  = (data) => dbRef.set(data);
+
+    dbRef.on("value", (snap) => {
+      const toArr = (v) => {
+        if (!v) return [];
+        if (Array.isArray(v)) return v;
+        if (typeof v === "object") return Object.values(v).filter(x => x && typeof x === "object");
+        return [];
+      };
+
+      if (!snap.exists()) {
+        DATA = defaultData();
+        dbRef.set(DATA);
+      } else {
+        const val = snap.val();
+        DATA = {
+          vehicles:     toArr(val.vehicles),
+          scadenze:     toArr(val.scadenze),
+          manutenzioni: toArr(val.manutenzioni),
+          kmLog:        toArr(val.kmLog),
+          gomme:        toArr(val.gomme),
+          nextId:       val.nextId || {scadenza:10,manutenzione:1,km:1,gomma:1}
+        };
+      }
+      render();
+    }, (error) => {
+      document.getElementById("app").innerHTML =
+        `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px">
+          <div style="font-size:32px">❌</div>
+          <div style="color:#ff3b3b;font-size:16px">Errore connessione Firebase</div>
+          <div style="color:#8b95a8;font-size:13px">${error.message}</div>
+        </div>`;
+    });
+  } catch(e) {
+    document.getElementById("app").innerHTML =
+      `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px">
+        <div style="font-size:32px">❌</div>
+        <div style="color:#ff3b3b;font-size:16px">Errore inizializzazione Firebase</div>
+        <div style="color:#8b95a8;font-size:13px">${e.message}</div>
+      </div>`;
   }
-  // Listen for real-time changes from Firebase
-  window._fbWatch((remoteData) => {
-    DATA = remoteData || defaultData();
-    if (!remoteData) saveData(); // first run: push defaults
-    render();
-  });
 }
-boot();
+
+// Aspetta che il DOM sia pronto
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", boot);
+} else {
+  boot();
+}
+
 </script>
 </body>
 </html>
