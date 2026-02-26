@@ -6,44 +6,9 @@
   <title>Fleet Manager</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 
-  <!-- Firebase compat SDK (works on GitHub Pages without bundler) -->
+  <!-- Firebase compat SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-  <script>
-    const firebaseConfig = {
-      apiKey:            "AIzaSyBsa6GbMjum5VOfTyz6vZXdzYvJz_AIEF8",
-      authDomain:        "fleet-manager-modus.firebaseapp.com",
-      databaseURL:       "https://fleet-manager-modus-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId:         "fleet-manager-modus",
-      storageBucket:     "fleet-manager-modus.firebasestorage.app",
-      messagingSenderId: "620267510370",
-      appId:             "1:620267510370:web:5333e1e07b73214bd50f3b"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db     = firebase.database();
-    const dbRef  = db.ref("fleet");
-
-    window._firebaseReady = true;
-    window._fbSave  = (data) => dbRef.set(data);
-    window._fbWatch = (cb)   => dbRef.on("value", snap => {
-      if (!snap.exists()) { cb(null); return; }
-      const val = snap.val();
-      // Firebase può restituire oggetti invece di array — normalizziamo
-      const toArray = (v) => {
-        if (!v) return [];
-        if (Array.isArray(v)) return v;
-        return Object.values(v);
-      };
-      val.vehicles     = toArray(val.vehicles);
-      val.scadenze     = toArray(val.scadenze);
-      val.manutenzioni = toArray(val.manutenzioni);
-      val.kmLog        = toArray(val.kmLog);
-      val.gomme        = toArray(val.gomme);
-      if (!val.nextId) val.nextId = {scadenza:10,manutenzione:1,km:1,gomma:1};
-      cb(val);
-    });
-  </script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -754,24 +719,33 @@ function submitEditVehicle(vid) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BOOT
+// BOOT — Firebase init + data load
 // ═══════════════════════════════════════════════════════════════════════════
 function boot() {
   try {
-    const db    = firebase.database();
-    const dbRef = db.ref("fleet");
+    const firebaseConfig = {
+      apiKey:            "AIzaSyBsa6GbMjum5VOfTyz6vZXdzYvJz_AIEF8",
+      authDomain:        "fleet-manager-modus.firebaseapp.com",
+      databaseURL:       "https://fleet-manager-modus-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId:         "fleet-manager-modus",
+      storageBucket:     "fleet-manager-modus.firebasestorage.app",
+      messagingSenderId: "620267510370",
+      appId:             "1:620267510370:web:5333e1e07b73214bd50f3b"
+    };
 
-    // Sovrascrivi i riferimenti firebase con quelli diretti
-    window._fbSave  = (data) => dbRef.set(data);
+    firebase.initializeApp(firebaseConfig);
+    const dbRef = firebase.database().ref("fleet");
+
+    window._fbSave = (data) => dbRef.set(data);
+
+    const toArr = (v) => {
+      if (!v) return [];
+      if (Array.isArray(v)) return v;
+      if (typeof v === "object") return Object.values(v).filter(x => x && typeof x === "object");
+      return [];
+    };
 
     dbRef.on("value", (snap) => {
-      const toArr = (v) => {
-        if (!v) return [];
-        if (Array.isArray(v)) return v;
-        if (typeof v === "object") return Object.values(v).filter(x => x && typeof x === "object");
-        return [];
-      };
-
       if (!snap.exists()) {
         DATA = defaultData();
         dbRef.set(DATA);
@@ -795,22 +769,17 @@ function boot() {
           <div style="color:#8b95a8;font-size:13px">${error.message}</div>
         </div>`;
     });
+
   } catch(e) {
     document.getElementById("app").innerHTML =
       `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px">
         <div style="font-size:32px">❌</div>
-        <div style="color:#ff3b3b;font-size:16px">Errore inizializzazione Firebase</div>
-        <div style="color:#8b95a8;font-size:13px">${e.message}</div>
+        <div style="color:#ff3b3b;font-size:16px">Errore: ${e.message}</div>
       </div>`;
   }
 }
 
-// Aspetta che il DOM sia pronto
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", boot);
-} else {
-  boot();
-}
+window.addEventListener("load", boot);
 
 </script>
 </body>
