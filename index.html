@@ -505,6 +505,7 @@ function renderManutenzioniTab(v) {
         </div>
       </div>
       <div style="color:#8b95a8;font-size:12px;margin-top:4px">km: ${Number(m.km).toLocaleString("it-IT")}</div>
+      ${m.note?`<div style="color:#8b95a8;font-size:12px;margin-top:4px;font-style:italic;border-top:1px solid #2e3347;padding-top:4px">${esc(m.note)}</div>`:""}
     </div>`).join("") || `<div style="color:#8b95a8;text-align:center;padding:24px">Nessuna manutenzione registrata</div>`;
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
     <span style="color:#8b95a8;font-size:13px">${items.length} interventi</span>
@@ -567,30 +568,41 @@ const CHECKLIST_VOCI = [
 ];
 
 function renderChecklistTab(v) {
-  const key = "checklist_v" + v.id;
-  const checked = (v.checklist || []);
+  const checklist = (v.checklist || []);
+  // Normalizza struttura: accetta sia numeri (vecchi) che oggetti {i, data}
+  const normalize = (c) => typeof c === "object" ? c : { i: c, data: new Date().toISOString().split("T")[0] };
+  const checkedMap = {};
+  checklist.forEach(c => { const n = normalize(c); checkedMap[n.i] = n.data; });
 
   const items = CHECKLIST_VOCI.map((voce, i) => {
-    const isChecked = checked.includes(i);
-    return `<div class="checklist-item ${isChecked?'checked':''}" onclick="toggleChecklist(${v.id},${i})">
-      <input type="checkbox" ${isChecked?'checked':''} onclick="event.stopPropagation();toggleChecklist(${v.id},${i})"/>
-      <label>${esc(voce)}</label>
+    const isChecked = i in checkedMap;
+    const dataVal = checkedMap[i] || "";
+    return `<div class="checklist-item ${isChecked?'checked':''}" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px;width:100%" onclick="toggleChecklist(${v.id},${i})">
+        <input type="checkbox" ${isChecked?'checked':''} onclick="event.stopPropagation();toggleChecklist(${v.id},${i})"/>
+        <label style="flex:1">${esc(voce)}</label>
+      </div>
+      ${isChecked ? `<input type="date" value="${dataVal}"
+        style="background:#0f1117;border:1px solid #2e3347;border-radius:5px;padding:3px 8px;color:#8b95a8;font-size:11px;width:100%;outline:none"
+        onclick="event.stopPropagation()"
+        onchange="setChecklistDate(${v.id},${i},this.value)"/>` : ""}
     </div>`;
   }).join("");
 
-  const done = checked.length;
+  const done = Object.keys(checkedMap).length;
   const pct = Math.round(done / CHECKLIST_VOCI.length * 100);
   const barColor = pct === 100 ? "#06d6a0" : pct >= 50 ? "#ffd166" : "#3d7eff";
 
   return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <span style="color:#8b95a8;font-size:13px">${done} / ${CHECKLIST_VOCI.length} completate</span>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:120px;height:6px;background:#2e3347;border-radius:3px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="width:100px;height:6px;background:#2e3347;border-radius:3px;overflow:hidden">
           <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px;transition:width .3s"></div>
         </div>
         <span style="color:${barColor};font-size:12px;font-weight:700">${pct}%</span>
         <button class="btn" onclick="resetChecklist(${v.id})">🔄 Reset</button>
+        <button class="btn btn-green" onclick="salvaChecklistInManutenzioni(${v.id})" title="Registra le voci spuntate come manutenzione">📋 Salva in manutenzioni</button>
       </div>
     </div>
     <div class="checklist-grid">${items}</div>`;
@@ -600,10 +612,46 @@ function toggleChecklist(vehicleId, index) {
   const v = DATA.vehicles.find(x => x.id === vehicleId);
   if (!v) return;
   if (!v.checklist) v.checklist = [];
-  const i = v.checklist.indexOf(index);
-  if (i === -1) v.checklist.push(index);
-  else v.checklist.splice(i, 1);
+  const existing = v.checklist.findIndex(c => (typeof c === "object" ? c.i : c) === index);
+  if (existing === -1) {
+    const today = new Date().toISOString().split("T")[0];
+    v.checklist.push({ i: index, data: today });
+  } else {
+    v.checklist.splice(existing, 1);
+  }
   saveData();
+  renderContent();
+}
+
+function setChecklistDate(vehicleId, index, dateVal) {
+  const v = DATA.vehicles.find(x => x.id === vehicleId);
+  if (!v || !v.checklist) return;
+  const existing = v.checklist.find(c => (typeof c === "object" ? c.i : c) === index);
+  if (existing && typeof existing === "object") {
+    existing.data = dateVal;
+    saveData();
+  }
+}
+
+function salvaChecklistInManutenzioni(vehicleId) {
+  const v = DATA.vehicles.find(x => x.id === vehicleId);
+  if (!v || !v.checklist || v.checklist.length === 0) {
+    showAlert("❌ Nessuna voce spuntata nella checklist", false); return;
+  }
+  const checked = v.checklist.map(c => typeof c === "object" ? c : { i: c, data: new Date().toISOString().split("T")[0] });
+  const voci = checked.map(c => `• ${CHECKLIST_VOCI[c.i]} (${fmtDate(c.data)})`).join("\n");
+  DATA.manutenzioni.push({
+    id: DATA.nextId.manutenzione++,
+    vehicleId,
+    tipo: "Ordinaria",
+    descrizione: "Checklist manutenzione",
+    data: checked[0].data,
+    km: v.km || 0,
+    costo: 0,
+    note: voci
+  });
+  saveData();
+  showAlert("✅ Checklist salvata nelle manutenzioni!");
   renderContent();
 }
 
@@ -675,6 +723,7 @@ function openModal(type, vehicleId) {
     <div class="field"><label>Data</label><input id="m_data" type="date" value="${today}"/></div>
     <div class="field"><label>Km attuali</label><input id="m_km" type="number" value="${v.km||0}"/></div>
     <div class="field"><label>Costo (€)</label><input id="m_costo" type="number" placeholder="0"/></div>
+    <div class="field"><label>Note (opzionale)</label><textarea id="m_note" rows="3" style="width:100%;background:#0f1117;border:1px solid #2e3347;border-radius:6px;padding:8px 12px;color:#e8eaf0;font-size:14px;resize:vertical;outline:none" placeholder="Officina, ricambi, osservazioni..."></textarea></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
       <button class="btn" onclick="submitManutenzione(${vehicleId})">Salva</button></div>`;
@@ -766,7 +815,8 @@ function submitManutenzione(vid) {
   DATA.manutenzioni.push({ id:DATA.nextId.manutenzione++, vehicleId:vid,
     tipo:document.getElementById("m_tipo").value, descrizione:desc,
     data:document.getElementById("m_data").value, km,
-    costo:Number(document.getElementById("m_costo").value)||0 });
+    costo:Number(document.getElementById("m_costo").value)||0,
+    note:document.getElementById("m_note")?.value||"" });
   DATA.vehicles = DATA.vehicles.map(v=>v.id===vid?{...v,km:Math.max(v.km,km)}:v);
   saveData(); closeModal(); renderContent();
 }
