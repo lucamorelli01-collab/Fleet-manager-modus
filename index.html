@@ -520,19 +520,89 @@ function renderManutenzioniTab(v) {
     <button class="btn" onclick="openModal('addManutenzione',${v.id})">+ Aggiungi</button></div>${rows}`;
 }
 
+// stato toggle grafico km (globale per non perdere selezione al re-render)
+let KM_CHART_MODE = "mese"; // "mese" | "anno"
+
 function renderKmTab(v) {
   const items = DATA.kmLog.filter(k=>k.vehicleId===v.id).sort((a,b)=>new Date(b.data)-new Date(a.data));
+
+  // ── Grafico ──────────────────────────────────────────────────────────────
+  // Ordina per data crescente per calcolare km percorsi per periodo
+  const sorted = [...items].sort((a,b)=>new Date(a.data)-new Date(b.data));
+
+  // Raggruppa per mese o anno: prende il valore km massimo per periodo
+  // poi calcola delta (km fatti in quel periodo)
+  const groups = {};
+  sorted.forEach(k => {
+    const d = new Date(k.data);
+    const key = KM_CHART_MODE === "mese"
+      ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`
+      : `${d.getFullYear()}`;
+    if (!groups[key] || k.km > groups[key]) groups[key] = k.km;
+  });
+
+  const keys = Object.keys(groups).sort();
+  // Delta km tra un periodo e il precedente
+  const deltas = keys.map((k,i) => {
+    if (i === 0) return { label: k, val: 0 }; // primo punto: base ignota
+    return { label: k, val: Math.max(0, groups[k] - groups[keys[i-1]]) };
+  }).filter((_,i) => i > 0); // esclude il primo (non calcolabile)
+
+  let grafico = "";
+  if (deltas.length >= 2) {
+    const maxVal = Math.max(...deltas.map(d=>d.val), 1);
+    const barWidth = Math.max(24, Math.min(52, Math.floor(560 / deltas.length) - 8));
+    const bars = deltas.map(d => {
+      const h = Math.round((d.val / maxVal) * 110);
+      const color = d.val === maxVal ? "#3d7eff" : "#3d7eff88";
+      const label = KM_CHART_MODE === "mese"
+        ? d.label.slice(5) + "/" + d.label.slice(2,4)   // MM/YY
+        : d.label;
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
+        <span style="color:#8b95a8;font-size:9px;font-weight:600">${Number(d.val).toLocaleString("it-IT")}</span>
+        <div style="width:${barWidth}px;height:${h}px;background:${color};border-radius:4px 4px 0 0;
+             transition:height .3s;min-height:3px" title="${label}: ${Number(d.val).toLocaleString("it-IT")} km"></div>
+        <span style="color:#8b95a8;font-size:9px;white-space:nowrap">${label}</span>
+      </div>`;
+    }).join("");
+
+    grafico = `
+    <div style="background:#1a1d26;border:1px solid #2e3347;border-radius:10px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <span style="color:#e8eaf0;font-size:13px;font-weight:700">📈 KM PERCORSI</span>
+        <div style="display:flex;gap:4px">
+          <button onclick="KM_CHART_MODE='mese';renderContent()" class="btn ${KM_CHART_MODE==='mese'?'':'btn-ghost'}"
+            style="font-size:11px;padding:3px 10px">Per mese</button>
+          <button onclick="KM_CHART_MODE='anno';renderContent()" class="btn ${KM_CHART_MODE==='anno'?'':'btn-ghost'}"
+            style="font-size:11px;padding:3px 10px">Per anno</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <div style="display:flex;align-items:flex-end;gap:6px;min-height:140px;padding:4px 0 0 0;min-width:fit-content">
+          ${bars}
+        </div>
+      </div>
+    </div>`;
+  } else if (items.length > 0) {
+    grafico = `<div style="color:#8b95a8;font-size:12px;text-align:center;padding:12px;margin-bottom:12px;
+      background:#1a1d26;border:1px solid #2e3347;border-radius:10px">
+      Aggiungi almeno 2 rilevazioni km per vedere il grafico</div>`;
+  }
+
+  // ── Lista ─────────────────────────────────────────────────────────────────
   const rows = items.map(k=>`
     <div class="row row-flex">
       <div>
         <span style="color:#3d7eff;font-weight:700;font-size:16px">${Number(k.km).toLocaleString("it-IT")} km</span>
-        ${k.note?`<div style="color:#8b95a8;font-size:12px">${esc(k.note)}</div>`:""}
+        ${k.note?`<div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(k.note)}</div>`:""}
       </div>
       <span style="color:#8b95a8;font-size:12px">${fmtDate(k.data)}</span>
     </div>`).join("") || `<div style="color:#8b95a8;text-align:center;padding:24px">Nessun aggiornamento km</div>`;
+
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
     <span style="color:#8b95a8;font-size:13px">${items.length} aggiornamenti</span>
-    <button class="btn" onclick="openModal('addKm',${v.id})">+ Aggiorna km</button></div>${rows}`;
+    <button class="btn" onclick="openModal('addKm',${v.id})">+ Aggiorna km</button></div>
+    ${grafico}${rows}`;
 }
 
 function renderGommeTab(v) {
@@ -888,11 +958,15 @@ function submitManutenzione(vid) {
   const desc = document.getElementById("m_desc")?.value;
   if (!desc) return;
   const km = Number(document.getElementById("m_km").value)||0;
+  const data = document.getElementById("m_data").value;
+  const tipo = document.getElementById("m_tipo").value;
+  const note = document.getElementById("m_note")?.value||"";
   DATA.manutenzioni.push({ id:DATA.nextId.manutenzione++, vehicleId:vid,
-    tipo:document.getElementById("m_tipo").value, descrizione:desc,
-    data:document.getElementById("m_data").value, km,
-    costo:Number(document.getElementById("m_costo").value)||0,
-    note:document.getElementById("m_note")?.value||"" });
+    tipo, descrizione:desc, data, km,
+    costo:Number(document.getElementById("m_costo").value)||0, note });
+  // Aggiunge automaticamente voce nel registro km
+  DATA.kmLog.push({ id:DATA.nextId.km++, vehicleId:vid, km, data,
+    note:`Da manutenzione: ${desc}` });
   DATA.vehicles = DATA.vehicles.map(v=>v.id===vid?{...v,km:Math.max(v.km,km)}:v);
   saveData(); closeModal(); renderContent();
 }
