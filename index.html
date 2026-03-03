@@ -472,30 +472,59 @@ function renderVehicleDetail() {
 }
 
 function renderScadenzeTab(v) {
-  const items = DATA.scadenze.filter(s=>s.vehicleId===v.id).sort((a,b)=>daysUntil(a.scadenza)-daysUntil(b.scadenza));
-  const rows = items.map(s=>{
+  const all = DATA.scadenze.filter(s=>s.vehicleId===v.id);
+  const attive  = all.filter(s=>!s.done).sort((a,b)=>daysUntil(a.scadenza)-daysUntil(b.scadenza));
+  const storico = all.filter(s=>s.done).sort((a,b)=>new Date(b.dataCompletata||b.scadenza)-new Date(a.dataCompletata||a.scadenza));
+
+  const rowAttiva = s => {
     const days = daysUntil(s.scadenza);
-    return `
-    <div class="row row-flex" style="${s.done?'opacity:0.5;':''}">
+    return `<div class="row row-flex">
       <div style="display:flex;align-items:center;gap:10px;flex:1">
-        <input type="checkbox" ${s.done?'checked':''} title="Segna come fatto"
+        <input type="checkbox" title="Segna come completata"
           style="width:17px;height:17px;accent-color:#06d6a0;cursor:pointer;flex-shrink:0"
           onchange="completaScadenza(${s.id},${v.id},this.checked)"/>
         <div>
-          <span style="color:#e8eaf0;font-weight:600${s.done?';text-decoration:line-through':''}">${esc(s.tipo)}</span>
+          <span style="color:#e8eaf0;font-weight:600">${esc(s.tipo)}</span>
           ${s.note?`<div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(s.note)}</div>`:""}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="color:#8b95a8;font-size:12px">${fmtDate(s.scadenza)}</span>
-        ${s.done?'<span class="badge" style="background:#06d6a022;color:#06d6a0;border:1px solid #06d6a044">FATTO</span>':badge(days)}
-        <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:#ff3b3b55;cursor:pointer;font-size:16px">×</button>
+        ${badge(days)}
+        <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:#ff3b3b55;cursor:pointer;font-size:16px" title="Elimina">×</button>
       </div>
     </div>`;
-  }).join("") || `<div style="color:#8b95a8;text-align:center;padding:24px">Nessuna scadenza registrata</div>`;
+  };
+
+  const rowStorico = s => `
+    <div class="row row-flex" style="opacity:0.55">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <input type="checkbox" checked title="Annulla completamento"
+          style="width:17px;height:17px;accent-color:#06d6a0;cursor:pointer;flex-shrink:0"
+          onchange="completaScadenza(${s.id},${v.id},this.checked)"/>
+        <div>
+          <span style="color:#8b95a8;font-weight:600;text-decoration:line-through">${esc(s.tipo)}</span>
+          ${s.dataCompletata?`<div style="color:#06d6a0;font-size:11px;margin-top:1px">✓ fatto il ${fmtDate(s.dataCompletata)}</div>`:""}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:#8b95a8;font-size:12px">${fmtDate(s.scadenza)}</span>
+        <span class="badge" style="background:#06d6a022;color:#06d6a0;border:1px solid #06d6a044">FATTO</span>
+        <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:#ff3b3b55;cursor:pointer;font-size:16px" title="Elimina dallo storico">×</button>
+      </div>
+    </div>`;
+
+  const righeAttive  = attive.map(rowAttiva).join("") || `<div style="color:#8b95a8;text-align:center;padding:16px;font-size:13px">Nessuna scadenza attiva</div>`;
+  const righeStorico = storico.length ? `
+    <div style="margin-top:20px">
+      <div style="color:#8b95a8;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;padding:0 4px">📋 STORICO COMPLETATE</div>
+      ${storico.map(rowStorico).join("")}
+    </div>` : "";
+
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
-    <span style="color:#8b95a8;font-size:13px">${items.length} scadenze</span>
-    <button class="btn" onclick="openModal('addScadenza',${v.id})">+ Aggiungi</button></div>${rows}`;
+    <span style="color:#8b95a8;font-size:13px">${attive.length} attive · ${storico.length} completate</span>
+    <button class="btn" onclick="openModal('addScadenza',${v.id})">+ Aggiungi</button></div>
+    ${righeAttive}${righeStorico}`;
 }
 
 function renderManutenzioniTab(v) {
@@ -520,76 +549,104 @@ function renderManutenzioniTab(v) {
     <button class="btn" onclick="openModal('addManutenzione',${v.id})">+ Aggiungi</button></div>${rows}`;
 }
 
-// stato toggle grafico km (globale per non perdere selezione al re-render)
-let KM_CHART_MODE = "mese"; // "mese" | "anno"
+let KM_CHART_MODE = "mese";
 
-function renderKmTab(v) {
-  const items = DATA.kmLog.filter(k=>k.vehicleId===v.id).sort((a,b)=>new Date(b.data)-new Date(a.data));
+function setKmChartMode(mode) {
+  KM_CHART_MODE = mode;
+  // Aggiorna solo il grafico senza ricostruire tutto il DOM
+  const container = document.getElementById("km-chart-container");
+  if (container) {
+    const vid = SELECTED_VEHICLE ? SELECTED_VEHICLE.id : null;
+    if (vid !== null) {
+      container.outerHTML = buildKmGrafico(DATA.kmLog.filter(k=>k.vehicleId===vid));
+    }
+  }
+}
 
-  // ── Grafico ──────────────────────────────────────────────────────────────
-  // Ordina per data crescente per calcolare km percorsi per periodo
+function buildKmGrafico(items) {
+  if (items.length === 0) return `<div id="km-chart-container"></div>`;
+
   const sorted = [...items].sort((a,b)=>new Date(a.data)-new Date(b.data));
 
-  // Raggruppa per mese o anno: prende il valore km massimo per periodo
-  // poi calcola delta (km fatti in quel periodo)
+  // Raggruppa: prende il km massimo per ogni periodo
   const groups = {};
   sorted.forEach(k => {
     const d = new Date(k.data);
     const key = KM_CHART_MODE === "mese"
       ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`
       : `${d.getFullYear()}`;
-    if (!groups[key] || k.km > groups[key]) groups[key] = k.km;
+    if (!(key in groups) || k.km > groups[key]) groups[key] = k.km;
   });
 
   const keys = Object.keys(groups).sort();
-  // Delta km tra un periodo e il precedente
-  const deltas = keys.map((k,i) => {
-    if (i === 0) return { label: k, val: 0 }; // primo punto: base ignota
-    return { label: k, val: Math.max(0, groups[k] - groups[keys[i-1]]) };
-  }).filter((_,i) => i > 0); // esclude il primo (non calcolabile)
 
-  let grafico = "";
-  if (deltas.length >= 2) {
+  // Calcola delta: km percorsi in ogni periodo rispetto al precedente
+  // Se un solo periodo, mostra i km totali come valore assoluto
+  let bars = "";
+  if (keys.length === 1) {
+    // Un solo periodo: mostra valore assoluto
+    const label = KM_CHART_MODE === "mese"
+      ? keys[0].slice(5) + "/" + keys[0].slice(2,4)
+      : keys[0];
+    bars = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
+      <span style="color:#8b95a8;font-size:9px;font-weight:600">${Number(groups[keys[0]]).toLocaleString("it-IT")}</span>
+      <div style="width:40px;height:110px;background:#3d7eff;border-radius:4px 4px 0 0;min-height:3px"></div>
+      <span style="color:#8b95a8;font-size:9px;white-space:nowrap">${label}</span>
+    </div>`;
+  } else {
+    const deltas = keys.map((k,i) => {
+      if (i === 0) return null;
+      return { label: k, val: Math.max(0, groups[k] - groups[keys[i-1]]) };
+    }).filter(Boolean);
+
     const maxVal = Math.max(...deltas.map(d=>d.val), 1);
-    const barWidth = Math.max(24, Math.min(52, Math.floor(560 / deltas.length) - 8));
-    const bars = deltas.map(d => {
-      const h = Math.round((d.val / maxVal) * 110);
-      const color = d.val === maxVal ? "#3d7eff" : "#3d7eff88";
+    const barWidth = Math.max(24, Math.min(52, Math.floor(540 / deltas.length) - 6));
+
+    bars = deltas.map(d => {
+      const h = Math.max(3, Math.round((d.val / maxVal) * 110));
+      const isMax = d.val === maxVal;
+      const color = isMax ? "#3d7eff" : "#3d7eff66";
       const label = KM_CHART_MODE === "mese"
-        ? d.label.slice(5) + "/" + d.label.slice(2,4)   // MM/YY
+        ? d.label.slice(5) + "/" + d.label.slice(2,4)
         : d.label;
       return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
-        <span style="color:#8b95a8;font-size:9px;font-weight:600">${Number(d.val).toLocaleString("it-IT")}</span>
-        <div style="width:${barWidth}px;height:${h}px;background:${color};border-radius:4px 4px 0 0;
-             transition:height .3s;min-height:3px" title="${label}: ${Number(d.val).toLocaleString("it-IT")} km"></div>
+        <span style="color:${isMax?'#e8eaf0':'#8b95a8'};font-size:9px;font-weight:${isMax?700:400}">${Number(d.val).toLocaleString("it-IT")}</span>
+        <div style="width:${barWidth}px;height:${h}px;background:${color};border-radius:4px 4px 0 0;"
+             title="${label}: ${Number(d.val).toLocaleString("it-IT")} km"></div>
         <span style="color:#8b95a8;font-size:9px;white-space:nowrap">${label}</span>
       </div>`;
     }).join("");
-
-    grafico = `
-    <div style="background:#1a1d26;border:1px solid #2e3347;border-radius:10px;padding:16px;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <span style="color:#e8eaf0;font-size:13px;font-weight:700">📈 KM PERCORSI</span>
-        <div style="display:flex;gap:4px">
-          <button onclick="KM_CHART_MODE='mese';renderContent()" class="btn ${KM_CHART_MODE==='mese'?'':'btn-ghost'}"
-            style="font-size:11px;padding:3px 10px">Per mese</button>
-          <button onclick="KM_CHART_MODE='anno';renderContent()" class="btn ${KM_CHART_MODE==='anno'?'':'btn-ghost'}"
-            style="font-size:11px;padding:3px 10px">Per anno</button>
-        </div>
-      </div>
-      <div style="overflow-x:auto">
-        <div style="display:flex;align-items:flex-end;gap:6px;min-height:140px;padding:4px 0 0 0;min-width:fit-content">
-          ${bars}
-        </div>
-      </div>
-    </div>`;
-  } else if (items.length > 0) {
-    grafico = `<div style="color:#8b95a8;font-size:12px;text-align:center;padding:12px;margin-bottom:12px;
-      background:#1a1d26;border:1px solid #2e3347;border-radius:10px">
-      Aggiungi almeno 2 rilevazioni km per vedere il grafico</div>`;
   }
 
-  // ── Lista ─────────────────────────────────────────────────────────────────
+  return `<div id="km-chart-container" style="background:#1a1d26;border:1px solid #2e3347;border-radius:10px;padding:16px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <span style="color:#e8eaf0;font-size:13px;font-weight:700">📈 KM PERCORSI</span>
+      <div style="display:flex;gap:4px">
+        <button onclick="setKmChartMode('mese')"
+          style="font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;border:1px solid #3d7eff;
+                 background:${KM_CHART_MODE==='mese'?'#3d7eff':'transparent'};
+                 color:${KM_CHART_MODE==='mese'?'#fff':'#3d7eff'}">Per mese</button>
+        <button onclick="setKmChartMode('anno')"
+          style="font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;border:1px solid #3d7eff;
+                 background:${KM_CHART_MODE==='anno'?'#3d7eff':'transparent'};
+                 color:${KM_CHART_MODE==='anno'?'#fff':'#3d7eff'}">Per anno</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <div style="display:flex;align-items:flex-end;gap:6px;min-height:140px;padding:4px 0 0 0;min-width:fit-content">
+        ${bars}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderKmTab(v) {
+  const items = DATA.kmLog.filter(k=>k.vehicleId===v.id).sort((a,b)=>new Date(b.data)-new Date(a.data));
+
+  const grafico = items.length > 0
+    ? buildKmGrafico(items)
+    : "";
+
   const rows = items.map(k=>`
     <div class="row row-flex">
       <div>
@@ -781,12 +838,13 @@ function renderAllScadenze() {
               border:1px solid ${c}22;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
               ${s.done?'opacity:0.55':''}">
         <div style="display:flex;align-items:center;gap:10px">
-          <input type="checkbox" ${s.done?'checked':''} title="Segna come fatto"
+          <input type="checkbox" ${s.done?'checked':''} title="${s.done?'Annulla completamento':'Segna come completata'}"
             style="width:17px;height:17px;accent-color:#06d6a0;cursor:pointer;flex-shrink:0"
             onchange="completaScadenza(${s.id},${s.vehicleId},this.checked)"/>
           <div>
-            <span style="color:#e8eaf0;font-weight:600${s.done?';text-decoration:line-through':''}">${esc(s.tipo)}</span>
+            <span style="color:${s.done?'#8b95a8':'#e8eaf0'};font-weight:600${s.done?';text-decoration:line-through':''}">${esc(s.tipo)}</span>
             <div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(s.v.targa||"")} — ${esc(s.v.modello||"")}</div>
+            ${s.done&&s.dataCompletata?`<div style="color:#06d6a0;font-size:11px">✓ fatto il ${fmtDate(s.dataCompletata)}</div>`:""}
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
@@ -894,45 +952,45 @@ function removeScadenza(id) {
 }
 
 // Mesi da aggiungere per tipo scadenza
-const RINNOVO_MESI = { "Bollo": 12, "Revisione": 24, "Tagliando": 12 };
+const RINNOVO_MESI = { "Bollo": 12, "Revisione": 24, "Tagliando": 12, "Assicurazione": 12 };
 
 function completaScadenza(scadId, vehicleId, checked) {
-  const s = DATA.scadenze.find(x => x.id === scadId);
-  if (!s) return;
+  // setTimeout evita che il re-render distrugga il checkbox mentre gestisce l'evento
+  setTimeout(() => {
+    const s = DATA.scadenze.find(x => x.id === scadId);
+    if (!s) return;
 
-  if (!checked) {
-    // Deselezionato: rimuovi flag done
-    s.done = false;
-    saveData(); renderContent(); return;
-  }
+    if (!checked) {
+      // Deselezionato: rimuovi flag done (annulla)
+      s.done = false;
+      saveData(); renderContent(); return;
+    }
 
-  const tipoUpper = s.tipo.trim();
-  const mesi = RINNOVO_MESI[tipoUpper];
+    const mesi = RINNOVO_MESI[s.tipo.trim()];
 
-  if (mesi) {
-    // Calcola nuova data partendo dalla scadenza attuale (non da oggi)
-    const base = s.scadenza ? new Date(s.scadenza) : new Date();
-    base.setMonth(base.getMonth() + mesi);
-    const nuovaData = base.toISOString().split("T")[0];
-
-    // Rimuovi la vecchia scadenza e aggiungi la nuova
-    DATA.scadenze = DATA.scadenze.filter(x => x.id !== scadId);
-    DATA.scadenze.push({
-      id: DATA.nextId.scadenza++,
-      vehicleId,
-      tipo: s.tipo,
-      scadenza: nuovaData,
-      note: s.note || "",
-      done: false
-    });
-    saveData();
-    renderContent();
-    showAlert(`✅ ${s.tipo} rinnovata → ${fmtDate(nuovaData)}`);
-  } else {
-    // Tipi senza rinnovo automatico: segna solo come fatto
+    // Marca la vecchia come completata (storico) — NON eliminare
     s.done = true;
-    saveData(); renderContent();
-  }
+    s.dataCompletata = new Date().toISOString().split("T")[0];
+
+    if (mesi) {
+      // Crea nuova scadenza partendo dalla data della vecchia
+      const base = s.scadenza ? new Date(s.scadenza) : new Date();
+      base.setMonth(base.getMonth() + mesi);
+      const nuovaData = base.toISOString().split("T")[0];
+      DATA.scadenze.push({
+        id: DATA.nextId.scadenza++,
+        vehicleId,
+        tipo: s.tipo,
+        scadenza: nuovaData,
+        note: s.note || "",
+        done: false
+      });
+      saveData(); renderContent();
+      showAlert(`✅ ${s.tipo} rinnovata → ${fmtDate(nuovaData)}`);
+    } else {
+      saveData(); renderContent();
+    }
+  }, 0);
 }
 
 function saveNote(vehicleId) {
