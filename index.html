@@ -473,18 +473,26 @@ function renderVehicleDetail() {
 
 function renderScadenzeTab(v) {
   const items = DATA.scadenze.filter(s=>s.vehicleId===v.id).sort((a,b)=>daysUntil(a.scadenza)-daysUntil(b.scadenza));
-  const rows = items.map(s=>`
-    <div class="row row-flex">
-      <div>
-        <span style="color:#e8eaf0;font-weight:600">${esc(s.tipo)}</span>
-        ${s.note?`<div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(s.note)}</div>`:""}
+  const rows = items.map(s=>{
+    const days = daysUntil(s.scadenza);
+    return `
+    <div class="row row-flex" style="${s.done?'opacity:0.5;':''}">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <input type="checkbox" ${s.done?'checked':''} title="Segna come fatto"
+          style="width:17px;height:17px;accent-color:#06d6a0;cursor:pointer;flex-shrink:0"
+          onchange="completaScadenza(${s.id},${v.id},this.checked)"/>
+        <div>
+          <span style="color:#e8eaf0;font-weight:600${s.done?';text-decoration:line-through':''}">${esc(s.tipo)}</span>
+          ${s.note?`<div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(s.note)}</div>`:""}
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="color:#8b95a8;font-size:12px">${fmtDate(s.scadenza)}</span>
-        ${badge(daysUntil(s.scadenza))}
+        ${s.done?'<span class="badge" style="background:#06d6a022;color:#06d6a0;border:1px solid #06d6a044">FATTO</span>':badge(days)}
         <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:#ff3b3b55;cursor:pointer;font-size:16px">×</button>
       </div>
-    </div>`).join("") || `<div style="color:#8b95a8;text-align:center;padding:24px">Nessuna scadenza registrata</div>`;
+    </div>`;
+  }).join("") || `<div style="color:#8b95a8;text-align:center;padding:24px">Nessuna scadenza registrata</div>`;
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
     <span style="color:#8b95a8;font-size:13px">${items.length} scadenze</span>
     <button class="btn" onclick="openModal('addScadenza',${v.id})">+ Aggiungi</button></div>${rows}`;
@@ -564,7 +572,8 @@ const CHECKLIST_VOCI = [
   "GOMME – sostituzione",
   "Equilibratura",
   "Convergenza",
-  "Inversione gomme"
+  "Inversione gomme",
+  "Altro"
 ];
 
 function renderChecklistTab(v) {
@@ -667,12 +676,27 @@ function renderNoteTab(v) {
   return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <span style="color:#8b95a8;font-size:13px">Note libere per questo furgone</span>
-      <button class="btn" onclick="saveNote(${v.id})">Salva</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="note-status" style="color:#8b95a8;font-size:11px"></span>
+        <button class="btn" onclick="saveNote(${v.id})">💾 Salva</button>
+      </div>
     </div>
-    <textarea id="noteArea" rows="12" class="field" style="width:100%;background:#0f1117;border:1px solid #2e3347;
-      border-radius:8px;padding:16px;color:#e8eaf0;font-size:14px;line-height:1.6;resize:vertical;outline:none"
+    <textarea id="noteArea" rows="14"
+      style="width:100%;background:#0f1117;border:1px solid #2e3347;border-radius:8px;padding:16px;
+             color:#e8eaf0;font-size:14px;line-height:1.6;resize:vertical;outline:none;font-family:inherit"
       placeholder="Scrivi qui note, promemoria, informazioni utili..."
+      oninput="noteUnsaved(${v.id})"
     >${esc(v.note||"")}</textarea>`;
+}
+
+function noteUnsaved(vehicleId) {
+  // Salva in memoria senza re-render (no perdita focus)
+  const el = document.getElementById("noteArea");
+  const st = document.getElementById("note-status");
+  if (!el) return;
+  const v = DATA.vehicles.find(x => x.id === vehicleId);
+  if (v) v.note = el.value;
+  if (st) { st.textContent = "● non salvato"; st.style.color = "#ffd166"; }
 }
 
 // ───────────────────── ALL SCADENZE ──────────────────────────────────────
@@ -681,17 +705,23 @@ function renderAllScadenze() {
     .map(s=>({...s,days:daysUntil(s.scadenza),v:DATA.vehicles.find(x=>x.id===s.vehicleId)||{}}))
     .sort((a,b)=>a.days-b.days)
     .map(s=>{
-      const c = urgColor(s.days);
+      const c = s.done ? "#06d6a0" : urgColor(s.days);
       const diff = s.days<0?`${Math.abs(s.days)}gg fa`:s.days===0?"oggi":`${s.days}gg`;
       return `<div style="background:#1a1d26;border-radius:8px;padding:12px 16px;margin-bottom:8px;
-              border:1px solid ${c}22;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <div>
-          <span style="color:#e8eaf0;font-weight:600">${esc(s.tipo)}</span>
-          <div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(s.v.targa||"")} — ${esc(s.v.modello||"")}</div>
+              border:1px solid ${c}22;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+              ${s.done?'opacity:0.55':''}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="checkbox" ${s.done?'checked':''} title="Segna come fatto"
+            style="width:17px;height:17px;accent-color:#06d6a0;cursor:pointer;flex-shrink:0"
+            onchange="completaScadenza(${s.id},${s.vehicleId},this.checked)"/>
+          <div>
+            <span style="color:#e8eaf0;font-weight:600${s.done?';text-decoration:line-through':''}">${esc(s.tipo)}</span>
+            <div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(s.v.targa||"")} — ${esc(s.v.modello||"")}</div>
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <span style="color:#8b95a8;font-size:12px">${fmtDate(s.scadenza)}</span>
-          ${badge(s.days)}
+          ${s.done?'<span class="badge" style="background:#06d6a022;color:#06d6a0;border:1px solid #06d6a044">FATTO</span>':badge(s.days)}
           <span style="color:#8b95a8;font-size:11px">${diff}</span>
         </div>
       </div>`;
@@ -793,10 +823,56 @@ function removeScadenza(id) {
   saveData(); renderContent();
 }
 
+// Mesi da aggiungere per tipo scadenza
+const RINNOVO_MESI = { "Bollo": 12, "Revisione": 24, "Tagliando": 12 };
+
+function completaScadenza(scadId, vehicleId, checked) {
+  const s = DATA.scadenze.find(x => x.id === scadId);
+  if (!s) return;
+
+  if (!checked) {
+    // Deselezionato: rimuovi flag done
+    s.done = false;
+    saveData(); renderContent(); return;
+  }
+
+  const tipoUpper = s.tipo.trim();
+  const mesi = RINNOVO_MESI[tipoUpper];
+
+  if (mesi) {
+    // Calcola nuova data partendo dalla scadenza attuale (non da oggi)
+    const base = s.scadenza ? new Date(s.scadenza) : new Date();
+    base.setMonth(base.getMonth() + mesi);
+    const nuovaData = base.toISOString().split("T")[0];
+
+    // Rimuovi la vecchia scadenza e aggiungi la nuova
+    DATA.scadenze = DATA.scadenze.filter(x => x.id !== scadId);
+    DATA.scadenze.push({
+      id: DATA.nextId.scadenza++,
+      vehicleId,
+      tipo: s.tipo,
+      scadenza: nuovaData,
+      note: s.note || "",
+      done: false
+    });
+    saveData();
+    renderContent();
+    showAlert(`✅ ${s.tipo} rinnovata → ${fmtDate(nuovaData)}`);
+  } else {
+    // Tipi senza rinnovo automatico: segna solo come fatto
+    s.done = true;
+    saveData(); renderContent();
+  }
+}
+
 function saveNote(vehicleId) {
-  const txt = document.getElementById("noteArea")?.value || "";
+  const el = document.getElementById("noteArea");
+  const txt = el ? el.value : "";
   DATA.vehicles = DATA.vehicles.map(v=>v.id===vehicleId?{...v,note:txt}:v);
-  saveData(); showAlert("✅ Note salvate!");
+  const st = document.getElementById("note-status");
+  if (st) { st.textContent = "✓ salvato"; st.style.color = "#06d6a0"; }
+  saveData();
+  showAlert("✅ Note salvate!");
 }
 
 function submitScadenza(vid) {
@@ -900,8 +976,18 @@ async function startPolling() {
   pollInterval = setInterval(async () => {
     try {
       const val = await fbLoad();
-      if (val) DATA = normalizeData(val);
-      render();
+      if (!val) return;
+      // Non fare render se l'utente sta scrivendo nelle note
+      if (VEHICLE_TAB === "note" && document.getElementById("noteArea")) {
+        const curNote = document.getElementById("noteArea").value;
+        DATA = normalizeData(val);
+        // Ripristina il testo che l'utente sta scrivendo
+        const v = DATA.vehicles.find(x => x.id === SELECTED_VEHICLE?.id);
+        if (v) v.note = curNote;
+      } else {
+        DATA = normalizeData(val);
+        render();
+      }
     } catch(e) { /* silenzioso */ }
   }, 15000);
 }
