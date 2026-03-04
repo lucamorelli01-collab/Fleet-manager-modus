@@ -89,6 +89,45 @@
     #alert-banner { position:fixed; bottom:16px; right:16px; padding:10px 18px; border-radius:8px;
                     font-size:13px; font-weight:600; z-index:2000; display:none; }
 
+    /* ── auth ── */
+    .auth-screen { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                   min-height:100vh; padding:20px; }
+    .auth-box { background:#1a1d26; border:1px solid #2e3347; border-radius:16px;
+                padding:32px; width:100%; max-width:400px; }
+    .auth-box h2 { color:#e8eaf0; font-size:20px; font-weight:800; margin-bottom:4px; }
+    .auth-box p  { color:#8b95a8; font-size:13px; margin-bottom:24px; }
+    .auth-tabs { display:flex; margin-bottom:24px; border-bottom:1px solid #2e3347; }
+    .auth-tab  { flex:1; padding:10px; text-align:center; font-size:13px; font-weight:700;
+                 cursor:pointer; color:#8b95a8; border:none; background:none;
+                 border-bottom:2px solid transparent; transition:.15s; }
+    .auth-tab.active { color:#3d7eff; border-bottom-color:#3d7eff; }
+    .auth-divider { display:flex; align-items:center; gap:10px; margin:16px 0; color:#8b95a8; font-size:12px; }
+    .auth-divider::before,.auth-divider::after { content:''; flex:1; height:1px; background:#2e3347; }
+    .auth-error { color:#ff3b3b; font-size:12px; margin-top:8px; min-height:18px; }
+    .btn-google { width:100%; padding:10px; border-radius:8px; border:1px solid #2e3347; background:#1a1d26;
+                  color:#e8eaf0; font-size:14px; font-weight:600; cursor:pointer; display:flex;
+                  align-items:center; justify-content:center; gap:10px; transition:border-color .15s; }
+    .btn-google:hover { border-color:#3d7eff; }
+    #user-chip { display:flex; align-items:center; gap:6px; }
+    #user-chip img { width:24px; height:24px; border-radius:50%; object-fit:cover; }
+    #user-chip .uname { color:#8b95a8; font-size:11px; max-width:90px;
+                        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    /* ── auth ── */
+    .auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+    .auth-box{background:#1a1d26;border:1px solid #2e3347;border-radius:16px;padding:32px;width:100%;max-width:400px}
+    .auth-tabs{display:flex;margin-bottom:24px;border-bottom:1px solid #2e3347}
+    .auth-tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:#8b95a8;border:none;background:none;border-bottom:2px solid transparent;transition:.15s}
+    .auth-tab.active{color:#3d7eff;border-bottom-color:#3d7eff}
+    .auth-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:#8b95a8;font-size:12px}
+    .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:#2e3347}
+    .auth-error{color:#ff3b3b;font-size:12px;margin-top:6px;min-height:16px}
+    .btn-google{width:100%;padding:10px;border-radius:8px;border:1px solid #2e3347;background:#1a1d26;color:#e8eaf0;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:border-color .15s}
+    .btn-google:hover{border-color:#3d7eff}
+    #user-chip{display:flex;align-items:center;gap:6px}
+    #user-chip img{width:24px;height:24px;border-radius:50%}
+    #user-chip .uname{color:#8b95a8;font-size:11px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
     /* ── checklist ── */
     .checklist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:8px; margin-top:12px; }
     .checklist-item { display:flex; align-items:center; gap:10px; background:#1a1d26; border:1px solid #2e3347;
@@ -112,6 +151,13 @@
   </div>
 </div>
 
+<!-- Firebase Auth SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<!-- Firebase Auth SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <!-- XLSX -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -153,6 +199,13 @@ function showAlert(msg, ok=true) {
   el.style.display = "block";
   setTimeout(() => el.style.display = "none", 3500);
 }
+function canEdit() {
+  if (CURRENT_FLEET_ROLE === "viewer") {
+    showAlert("👁 Sei in modalità sola lettura", false);
+    return false;
+  }
+  return true;
+}
 function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -192,6 +245,10 @@ let SELECTED_VEHICLE = null;    // vehicle object
 let VEHICLE_TAB = "scadenze";   // scadenze | manutenzioni | km | gomme | note
 let MODAL = null;               // null | {type, data}
 let SAVING = false;
+let CURRENT_USER = null;
+let CURRENT_FLEET_ID   = "personal";  // "personal" | fleetId
+let CURRENT_FLEET_ROLE = "admin";     // "admin"|"editor"|"viewer"
+let MY_FLEETS = {};                    // { fleetId: {name, role} }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXCEL EXPORT
@@ -324,7 +381,12 @@ function renderHeader() {
   <div id="header">
     <div class="logo">
       <span style="font-size:20px">🚐</span>
-      <span style="color:#e8eaf0">FLEET MANAGER</span>
+      <div>
+        <span style="color:#e8eaf0;font-size:13px;font-weight:800;letter-spacing:2px">FLEET MANAGER</span>
+        <div style="color:#8b95a8;font-size:10px;margin-top:-1px">
+          ${CURRENT_FLEET_ID==="personal"?"Flotta personale":esc(MY_FLEETS[CURRENT_FLEET_ID]?.name||"")}
+        </div>
+      </div>
     </div>
     <div id="nav" style="display:flex;gap:4px">
       <button class="tab ${VIEW==='dashboard'?'active':''}" onclick="navigate('dashboard')">📊 Dashboard</button>
@@ -332,11 +394,19 @@ function renderHeader() {
       <button class="tab ${VIEW==='scadenze'?'active':''}" onclick="navigate('scadenze')">📅 Scadenze</button>
     </div>
     <div id="header-actions">
+      ${CURRENT_FLEET_ROLE==="viewer"?'<span style="color:#ffd166;font-size:10px;font-weight:700;background:#ffd16622;padding:2px 7px;border-radius:4px;border:1px solid #ffd16644">👁 SOLA LETTURA</span>':''}
       ${SAVING ? '<span style="color:#06d6a0;font-size:11px">💾 Salvataggio...</span>' : ''}
-      <button class="btn btn-green" onclick="exportExcel()" title="Esporta backup Excel">⬇️ Export</button>
-      <button class="btn btn-yellow" onclick="document.getElementById('importInput').click()" title="Importa backup Excel">⬆️ Import</button>
-      <input id="importInput" type="file" accept=".xlsx" style="display:none"
-             onchange="importExcel(this.files[0]); this.value=''"/>
+      ${CURRENT_FLEET_ROLE!=="viewer"?`
+        <button class="btn btn-green" onclick="exportExcel()" title="Esporta">⬇️</button>
+        <button class="btn btn-yellow" onclick="document.getElementById('importInput').click()" title="Importa">⬆️</button>
+        <input id="importInput" type="file" accept=".xlsx" style="display:none" onchange="importExcel(this.files[0]);this.value=''"/>
+      `:''}
+      <button class="btn" onclick="openFleetManager()" title="Gestisci flotte" style="padding:4px 10px;font-size:14px">🏢</button>
+      <div id="user-chip">
+        ${CURRENT_USER?.photoURL?`<img src="${CURRENT_USER.photoURL}" onerror="this.style.display='none'"/>`:'' }
+        <span class="uname" title="${CURRENT_USER?.email||''}">${(CURRENT_USER?.displayName||CURRENT_USER?.email||'').split(' ')[0]}</span>
+        <button class="btn" onclick="doLogout()" style="padding:4px 8px;font-size:11px">⎋ Esci</button>
+      </div>
     </div>
   </div>`;
   if (existing) existing.outerHTML = html;
@@ -745,6 +815,7 @@ function renderChecklistTab(v) {
 }
 
 function toggleChecklist(vehicleId, index) {
+  if (!canEdit()) return;
   const v = DATA.vehicles.find(x => x.id === vehicleId);
   if (!v) return;
   if (!v.checklist) v.checklist = [];
@@ -861,6 +932,7 @@ function renderAllScadenze() {
 // MODALS
 // ═══════════════════════════════════════════════════════════════════════════
 function openModal(type, vehicleId) {
+  if (!canEdit()) return;
   const v = DATA.vehicles.find(x=>x.id===vehicleId) || {};
   const today = new Date().toISOString().split("T")[0];
   let body = "";
@@ -955,6 +1027,7 @@ function removeScadenza(id) {
 const RINNOVO_MESI = { "Bollo": 12, "Revisione": 24, "Tagliando": 12, "Assicurazione": 12 };
 
 function completaScadenza(scadId, vehicleId, checked) {
+  if (!canEdit()) { setTimeout(()=>renderContent(),0); return; }
   // setTimeout evita che il re-render distrugga il checkbox mentre gestisce l'evento
   setTimeout(() => {
     const s = DATA.scadenze.find(x => x.id === scadId);
@@ -994,6 +1067,7 @@ function completaScadenza(scadId, vehicleId, checked) {
 }
 
 function saveNote(vehicleId) {
+  if (!canEdit()) return;
   const el = document.getElementById("noteArea");
   const txt = el ? el.value : "";
   DATA.vehicles = DATA.vehicles.map(v=>v.id===vehicleId?{...v,note:txt}:v);
@@ -1057,23 +1131,139 @@ function submitEditVehicle(vid) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FIREBASE REST API — nessun SDK, funziona ovunque
+// FIREBASE CONFIG + AUTH
 // ═══════════════════════════════════════════════════════════════════════════
-const FB_URL = "https://fleet-manager-modus-default-rtdb.europe-west1.firebasedatabase.app/fleet.json";
+const FB_CONFIG = {
+  apiKey: "AIzaSyBsa6GbMjum5VOfTyz6vZXdzYvJz_AIEF8",
+  authDomain: "fleet-manager-modus.firebaseapp.com",
+  databaseURL: "https://fleet-manager-modus-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "fleet-manager-modus",
+};
+firebase.initializeApp(FB_CONFIG);
+const fbAuth = firebase.auth();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-async function fbLoad() {
-  const r = await fetch(FB_URL);
-  if (!r.ok) throw new Error("HTTP " + r.status);
+const FB_BASE = "https://fleet-manager-modus-default-rtdb.europe-west1.firebasedatabase.app";
+function fbUserUrl(uid)          { return FB_BASE+"/users/"+uid+"/fleet.json"; }
+function fbFleetDataUrl(fid)     { return FB_BASE+"/fleets/"+fid+"/data.json"; }
+function fbFleetMembersUrl(fid)  { return FB_BASE+"/fleets/"+fid+"/members.json"; }
+function fbFleetMetaUrl(fid)     { return FB_BASE+"/fleets/"+fid+"/meta.json"; }
+function fbUserFleetsUrl(uid)    { return FB_BASE+"/userFleets/"+uid+".json"; }
+function fbLegacyUrl()           { return FB_BASE+"/fleet.json"; }
+
+async function fbToken() { return await CURRENT_USER.getIdToken(); }
+
+async function fbGet(url) {
+  const r = await fetch(url+"?auth="+await fbToken());
+  if (!r.ok) throw new Error("HTTP "+r.status);
   return await r.json();
 }
-
-async function fbSave(data) {
-  const r = await fetch(FB_URL, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
+async function fbPut(url, data) {
+  const r = await fetch(url+"?auth="+await fbToken(), {
+    method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)
   });
-  if (!r.ok) throw new Error("HTTP " + r.status);
+  if (!r.ok) throw new Error("HTTP "+r.status);
+}
+async function fbPatch(url, data) {
+  const r = await fetch(url+"?auth="+await fbToken(), {
+    method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error("HTTP "+r.status);
+}
+async function fbDelete(url) {
+  await fetch(url+"?auth="+await fbToken(), { method:"DELETE" });
+}
+
+async function fbLoad() {
+  if (!CURRENT_USER) throw new Error("Non autenticato");
+  if (CURRENT_FLEET_ID === "personal") return await fbGet(fbUserUrl(CURRENT_USER.uid));
+  return await fbGet(fbFleetDataUrl(CURRENT_FLEET_ID));
+}
+async function fbSave(data) {
+  if (!CURRENT_USER) throw new Error("Non autenticato");
+  if (CURRENT_FLEET_ID === "personal") await fbPut(fbUserUrl(CURRENT_USER.uid), data);
+  else await fbPut(fbFleetDataUrl(CURRENT_FLEET_ID), data);
+}
+
+// ── Migrazione: /fleet (legacy pubblico) → /users/{uid}/fleet ─────────────
+async function migrateIfNeeded() {
+  try {
+    const existing = await fbGet(fbUserUrl(CURRENT_USER.uid));
+    if (existing?.vehicles?.length > 0) return false; // già migrato
+    const r = await fetch(fbLegacyUrl()); // legacy era pubblico, no auth
+    if (!r.ok) return false;
+    const legacy = await r.json();
+    if (!legacy?.vehicles) return false;
+    await fbPut(fbUserUrl(CURRENT_USER.uid), legacy);
+    console.log("Migrazione OK:", legacy.vehicles.length, "veicoli");
+    return true;
+  } catch(e) { console.warn("Migrazione saltata:", e.message); return false; }
+}
+
+// ── Flotte condivise ──────────────────────────────────────────────────────
+function genFleetId()   { return "fl_"+Math.random().toString(36).slice(2,10); }
+function genInviteCode() {
+  const ch="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return "FLEET-"+"XXXX".replace(/X/g,()=>ch[Math.floor(Math.random()*ch.length)]);
+}
+
+async function loadMyFleets() {
+  try {
+    const raw = await fbGet(fbUserFleetsUrl(CURRENT_USER.uid));
+    if (!raw) { MY_FLEETS={}; return; }
+    const fl = {};
+    for (const fid of Object.keys(raw)) {
+      try {
+        const [meta, members] = await Promise.all([fbGet(fbFleetMetaUrl(fid)), fbGet(fbFleetMembersUrl(fid))]);
+        fl[fid] = { name: meta?.name||fid, role: members?.[CURRENT_USER.uid]||"viewer" };
+      } catch(e) { /* flotta rimossa */ }
+    }
+    MY_FLEETS = fl;
+  } catch(e) { MY_FLEETS={}; }
+}
+
+async function createFleet(name) {
+  const fid = genFleetId();
+  const empty = defaultData(); empty.vehicles=[]; empty.scadenze=[];
+  await Promise.all([
+    fbPut(fbFleetMetaUrl(fid), {name, createdBy:CURRENT_USER.uid, createdAt:Date.now()}),
+    fbPut(fbFleetMembersUrl(fid), {[CURRENT_USER.uid]:"admin"}),
+    fbPut(fbFleetDataUrl(fid), empty),
+    fbPatch(fbUserFleetsUrl(CURRENT_USER.uid), {[fid]:true})
+  ]);
+  MY_FLEETS[fid] = {name, role:"admin"};
+  return fid;
+}
+
+async function generateAndPublishInvite(fleetId, role) {
+  const code = genInviteCode();
+  const expiresAt = Date.now()+24*60*60*1000;
+  // Salva sia nella flotta che nell'indice globale per ricerca rapida
+  await Promise.all([
+    fbPut(FB_BASE+"/fleets/"+fleetId+"/invites/"+code+".json?auth="+await fbToken(),
+      {role, createdBy:CURRENT_USER.uid, expiresAt}).catch(()=>null),
+    fetch(FB_BASE+"/inviteCodes/"+code+".json?auth="+await fbToken(), {
+      method:"PUT", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({fleetId, role, expiresAt})
+    })
+  ]);
+  return code;
+}
+
+async function joinFleetByCode(code) {
+  try {
+    const inv = await fbGet(FB_BASE+"/inviteCodes/"+code+".json");
+    if (!inv) return {ok:false, msg:"Codice non trovato"};
+    if (Date.now() > inv.expiresAt) return {ok:false, msg:"Codice scaduto (era valido 24h)"};
+    const fid = inv.fleetId;
+    await Promise.all([
+      fbPatch(fbFleetMembersUrl(fid), {[CURRENT_USER.uid]: inv.role}),
+      fbPatch(fbUserFleetsUrl(CURRENT_USER.uid), {[fid]: true})
+    ]);
+    const meta = await fbGet(fbFleetMetaUrl(fid)).catch(()=>null);
+    MY_FLEETS[fid] = {name: meta?.name||fid, role: inv.role};
+    return {ok:true, name: meta?.name||fid, role: inv.role};
+  } catch(e) { return {ok:false, msg:"Errore: "+e.message}; }
 }
 
 const toArr = (v) => {
@@ -1125,13 +1315,357 @@ async function startPolling() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BOOT
+// FLEET MANAGER UI
 // ═══════════════════════════════════════════════════════════════════════════
-async function boot() {
+function openFleetManager() {
+  document.getElementById("fleet-overlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "overlay"; overlay.id = "fleet-overlay";
+  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+  overlay.innerHTML = buildFleetManagerHTML();
+  document.body.appendChild(overlay);
+}
+
+function buildFleetManagerHTML() {
+  const pActive = CURRENT_FLEET_ID === "personal";
+  const roleIcon = {admin:"👑",editor:"✏️",viewer:"👁"};
+  const roleLabel = {admin:"Admin",editor:"Editor",viewer:"Solo lettura"};
+
+  const fleetRows = Object.entries(MY_FLEETS).map(([fid,f]) => {
+    const active = CURRENT_FLEET_ID === fid;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;
+              background:${active?"#3d7eff18":"#0f1117"};border:1px solid ${active?"#3d7eff55":"#2e3347"}">
+      <div style="flex:1;min-width:0">
+        <div style="color:#e8eaf0;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</div>
+        <div style="color:#8b95a8;font-size:11px">${roleIcon[f.role]||""} ${roleLabel[f.role]||f.role}</div>
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        ${active
+          ? '<span style="color:#3d7eff;font-size:11px;font-weight:700">ATTIVA</span>'
+          : `<button class="btn" onclick="switchFleet('${fid}')" style="font-size:11px;padding:3px 9px">Apri</button>`}
+        ${f.role==="admin"
+          ? `<button class="btn" onclick="openInvitePanel('${fid}')" style="font-size:11px;padding:3px 9px" title="Invita">🔗</button>`
+          : ""}
+        ${f.role!=="admin"
+          ? `<button onclick="leaveFleet('${fid}')" title="Abbandona" style="background:none;border:none;color:#ff3b3b66;cursor:pointer;font-size:18px;line-height:1">×</button>`
+          : ""}
+      </div>
+    </div>`;
+  }).join("") || '<div style="color:#8b95a8;font-size:12px;padding:4px 0 8px">Nessuna flotta condivisa ancora</div>';
+
+  return `<div class="modal" style="max-width:460px;max-height:85vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3>🏢 Gestione flotte</h3>
+      <button class="modal-close" onclick="document.getElementById('fleet-overlay').remove()">×</button>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="color:#8b95a8;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px">LE MIE FLOTTE</div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;
+           background:${pActive?"#3d7eff18":"#0f1117"};border:1px solid ${pActive?"#3d7eff55":"#2e3347"}">
+        <div style="flex:1">
+          <div style="color:#e8eaf0;font-weight:600;font-size:13px">🙋 Flotta personale</div>
+          <div style="color:#8b95a8;font-size:11px">Solo tua — sempre disponibile</div>
+        </div>
+        ${pActive
+          ? '<span style="color:#3d7eff;font-size:11px;font-weight:700">ATTIVA</span>'
+          : "<button class="btn" onclick="switchFleet('personal')" style="font-size:11px;padding:3px 9px">Apri</button>"}
+      </div>
+
+      ${fleetRows}
+    </div>
+
+    <div id="fleet-panel-body"></div>
+
+    <div style="border-top:1px solid #2e3347;padding-top:14px;display:flex;gap:8px">
+      <button class="btn btn-green" onclick="showCreateFleetPanel()" style="flex:1">➕ Crea flotta</button>
+      <button class="btn" onclick="showJoinFleetPanel()" style="flex:1">🔑 Entra con codice</button>
+    </div>
+  </div>`;
+}
+
+function setFleetPanel(html) {
+  const el = document.getElementById("fleet-panel-body");
+  if (el) el.innerHTML = html;
+}
+
+function showCreateFleetPanel() {
+  setFleetPanel(`
+    <div style="background:#0f1117;border:1px solid #2e3347;border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="color:#e8eaf0;font-weight:700;font-size:13px;margin-bottom:10px">➕ Nuova flotta di gruppo</div>
+      <div class="field"><label>Nome flotta</label>
+        <input id="fp-name" type="text" placeholder="Es. Flotta Aziendale Modus" autofocus/></div>
+      <div id="fp-err" style="color:#ff3b3b;font-size:12px;min-height:14px"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost" onclick="setFleetPanel('')" style="flex:1">Annulla</button>
+        <button class="btn btn-green" onclick="doCreateFleet()" style="flex:1">Crea</button>
+      </div>
+    </div>`);
+  document.getElementById("fp-name")?.focus();
+}
+
+async function doCreateFleet() {
+  const name = (document.getElementById("fp-name")?.value||"").trim();
+  if (!name) { document.getElementById("fp-err").textContent="Inserisci un nome"; return; }
+  document.getElementById("fp-err").textContent="⏳ Creazione...";
+  try {
+    const fid = await createFleet(name);
+    document.getElementById("fleet-overlay")?.remove();
+    showAlert('✅ Flotta "'+name+'" creata!');
+    await switchFleet(fid);
+  } catch(e) {
+    document.getElementById("fp-err").textContent="Errore: "+e.message;
+  }
+}
+
+function showJoinFleetPanel() {
+  setFleetPanel(`
+    <div style="background:#0f1117;border:1px solid #2e3347;border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="color:#e8eaf0;font-weight:700;font-size:13px;margin-bottom:10px">🔑 Entra con codice invito</div>
+      <div class="field"><label>Codice</label>
+        <input id="fp-code" type="text" placeholder="FLEET-XXXX"
+          style="text-transform:uppercase;letter-spacing:3px;font-weight:800;font-size:15px" autofocus/></div>
+      <div id="fp-err" style="color:#ff3b3b;font-size:12px;min-height:14px"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost" onclick="setFleetPanel('')" style="flex:1">Annulla</button>
+        <button class="btn" onclick="doJoinFleet()" style="flex:1">Entra</button>
+      </div>
+    </div>`);
+  document.getElementById("fp-code")?.focus();
+}
+
+async function doJoinFleet() {
+  const code = (document.getElementById("fp-code")?.value||"").trim().toUpperCase();
+  if (!code) { document.getElementById("fp-err").textContent="Inserisci il codice"; return; }
+  document.getElementById("fp-err").textContent="⏳ Verifica codice...";
+  const res = await joinFleetByCode(code);
+  if (res.ok) {
+    document.getElementById("fleet-overlay")?.remove();
+    const rl = {admin:"Admin",editor:"Editor",viewer:"Solo lettura"}[res.role]||res.role;
+    showAlert('✅ Entrato in "'+res.name+'" come '+rl+'!');
+  } else {
+    document.getElementById("fp-err").textContent="❌ "+res.msg;
+  }
+}
+
+function openInvitePanel(fleetId) {
+  setFleetPanel(`
+    <div style="background:#0f1117;border:1px solid #2e3347;border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="color:#e8eaf0;font-weight:700;font-size:13px;margin-bottom:10px">🔗 Genera codice invito</div>
+      <div class="field"><label>Ruolo dell'invitato</label>
+        <select id="fp-role">
+          <option value="editor">✏️ Editor — può modificare</option>
+          <option value="viewer">👁 Viewer — solo lettura</option>
+          <option value="admin">👑 Admin — controllo totale</option>
+        </select></div>
+      <div id="fp-invite-result" style="margin-top:8px"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost" onclick="setFleetPanel('')" style="flex:1">Chiudi</button>
+        <button class="btn btn-green" onclick="doGenerateInvite('${fleetId}')" style="flex:1">🔑 Genera</button>
+      </div>
+    </div>`);
+}
+
+async function doGenerateInvite(fleetId) {
+  const role = document.getElementById("fp-role")?.value||"editor";
+  document.getElementById("fp-invite-result").innerHTML = '<span style="color:#8b95a8;font-size:12px">⏳ Generazione...</span>';
+  try {
+    const code = await generateAndPublishInvite(fleetId, role);
+    const exp = new Date(Date.now()+24*60*60*1000).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+    const flName = MY_FLEETS[fleetId]?.name||fleetId;
+    const rl = {admin:"Admin",editor:"Editor",viewer:"Viewer"}[role]||role;
+    document.getElementById("fp-invite-result").innerHTML = `
+      <div style="background:#06d6a018;border:1px solid #06d6a044;border-radius:8px;padding:12px">
+        <div style="color:#8b95a8;font-size:11px;margin-bottom:6px">Valido fino al ${exp} · Ruolo: <b style="color:#e8eaf0">${rl}</b></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <code style="color:#06d6a0;font-size:20px;font-weight:900;letter-spacing:4px;flex:1">${code}</code>
+          <button class="btn btn-green" onclick="navigator.clipboard.writeText('${code}').then(()=>showAlert('📋 Codice copiato!'))"
+            style="font-size:11px;padding:4px 10px;flex-shrink:0">Copia</button>
+        </div>
+        <div style="color:#8b95a8;font-size:11px;margin-top:6px">Flotta: <b style="color:#e8eaf0">${esc(flName)}</b></div>
+      </div>`;
+  } catch(e) {
+    document.getElementById("fp-invite-result").innerHTML = '<span style="color:#ff3b3b;font-size:12px">❌ '+e.message+'</span>';
+  }
+}
+
+async function switchFleet(fleetId) {
+  document.getElementById("fleet-overlay")?.remove();
+  CURRENT_FLEET_ID   = fleetId;
+  CURRENT_FLEET_ROLE = fleetId==="personal" ? "admin" : (MY_FLEETS[fleetId]?.role||"viewer");
+  SELECTED_VEHICLE = null; VIEW = "dashboard";
+  clearInterval(pollInterval);
+  DATA = null;
+  document.getElementById("app").innerHTML =
+    `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#3d7eff;font-size:16px">
+      <div class="spinner" style="width:28px;height:28px;border-width:3px;margin-right:10px"></div> Caricamento flotta...
+    </div>`;
   try {
     const val = await fbLoad();
     if (!val) {
-      DATA = defaultData();
+      DATA = defaultData(); DATA.vehicles=[]; DATA.scadenze=[];
+      if (CURRENT_FLEET_ROLE!=="viewer") await fbSave(DATA);
+    } else {
+      DATA = normalizeData(val);
+    }
+    render(); startPolling();
+    const name = fleetId==="personal" ? "Flotta personale" : (MY_FLEETS[fleetId]?.name||fleetId);
+    showAlert("✅ "+name);
+  } catch(e) {
+    showAlert("❌ Errore: "+e.message, false);
+    if (fleetId!=="personal") await switchFleet("personal");
+  }
+}
+
+async function leaveFleet(fleetId) {
+  if (!confirm("Sei sicuro di voler abbandonare questa flotta?")) return;
+  try {
+    await fbDelete(FB_BASE+"/fleets/"+fleetId+"/members/"+CURRENT_USER.uid+".json");
+    await fbDelete(FB_BASE+"/userFleets/"+CURRENT_USER.uid+"/"+fleetId+".json");
+    delete MY_FLEETS[fleetId];
+    document.getElementById("fleet-overlay")?.remove();
+    if (CURRENT_FLEET_ID===fleetId) await switchFleet("personal");
+    else openFleetManager();
+    showAlert("✅ Flotta abbandonata");
+  } catch(e) { showAlert("❌ "+e.message, false); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTH UI
+// ═══════════════════════════════════════════════════════════════════════════
+let AUTH_TAB = "login";
+
+function showAuthScreen() {
+  clearInterval(pollInterval);
+  DATA = null;
+  document.getElementById("app").innerHTML = buildAuthScreen();
+}
+
+function buildAuthScreen() {
+  const isLogin = AUTH_TAB === "login";
+  return `<div class="auth-screen">
+    <div class="auth-box">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-size:40px">🚐</div>
+        <div style="color:#e8eaf0;font-size:20px;font-weight:800;margin-top:8px">Fleet Manager</div>
+        <div style="color:#8b95a8;font-size:13px;margin-top:4px">Gestione flotta aziendale</div>
+      </div>
+      <div class="auth-tabs">
+        <button class="auth-tab ${isLogin?"active":""}" onclick="AUTH_TAB="login";document.getElementById("app").innerHTML=buildAuthScreen()">Accedi</button>
+        <button class="auth-tab ${!isLogin?"active":""}" onclick="AUTH_TAB="register";document.getElementById("app").innerHTML=buildAuthScreen()">Registrati</button>
+      </div>
+      <button class="btn-google" onclick="loginGoogle()">
+        <svg width="18" height="18" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        Continua con Google
+      </button>
+      <div class="auth-divider">oppure con email</div>
+      <div class="field"><label>Email</label>
+        <input id="auth-email" type="email" placeholder="tua@email.com" autocomplete="email"
+          onkeydown="if(event.key===\'Enter\')document.getElementById(\'auth-pwd\').focus()"/></div>
+      <div class="field"><label>Password</label>
+        <input id="auth-pwd" type="password" placeholder="min. 6 caratteri"
+          onkeydown="if(event.key===\'Enter\'){isLogin?loginEmail():registerEmail()}"/></div>
+      ${!isLogin ? `<div class="field"><label>Conferma password</label>
+        <input id="auth-pwd2" type="password" placeholder="ripeti password"
+          onkeydown="if(event.key===\'Enter\')registerEmail()"/></div>` : ""}
+      <div id="auth-error" class="auth-error"></div>
+      <button class="btn" style="width:100%;padding:11px;margin-top:8px;font-size:14px"
+        onclick="${isLogin?"loginEmail()":"registerEmail()}">
+        ${isLogin ? "🔑 Accedi" : "✨ Crea account"}
+      </button>
+    </div>
+  </div>`;
+}
+
+function setAuthError(msg) {
+  const el = document.getElementById("auth-error");
+  if (el) el.textContent = msg;
+}
+
+async function loginGoogle() {
+  try {
+    await fbAuth.signInWithPopup(googleProvider);
+  } catch(e) { setAuthError(authErr(e.code)); }
+}
+
+async function loginEmail() {
+  const email = (document.getElementById("auth-email")?.value||"").trim();
+  const pwd   = document.getElementById("auth-pwd")?.value||"";
+  if (!email||!pwd) { setAuthError("Compila tutti i campi"); return; }
+  try {
+    await fbAuth.signInWithEmailAndPassword(email, pwd);
+  } catch(e) { setAuthError(authErr(e.code)); }
+}
+
+async function registerEmail() {
+  const email = (document.getElementById("auth-email")?.value||"").trim();
+  const pwd   = document.getElementById("auth-pwd")?.value||"";
+  const pwd2  = document.getElementById("auth-pwd2")?.value||"";
+  if (!email||!pwd) { setAuthError("Compila tutti i campi"); return; }
+  if (pwd!==pwd2)   { setAuthError("Le password non coincidono"); return; }
+  if (pwd.length<6) { setAuthError("Password minimo 6 caratteri"); return; }
+  try {
+    await fbAuth.createUserWithEmailAndPassword(email, pwd);
+  } catch(e) { setAuthError(authErr(e.code)); }
+}
+
+async function doLogout() {
+  clearInterval(pollInterval);
+  CURRENT_USER = null;
+  DATA = null;
+  await fbAuth.signOut();
+}
+
+function authErr(code) {
+  return ({
+    "auth/user-not-found":      "Account non trovato",
+    "auth/wrong-password":      "Password errata",
+    "auth/invalid-credential":  "Email o password errati",
+    "auth/email-already-in-use":"Email già registrata",
+    "auth/invalid-email":       "Email non valida",
+    "auth/weak-password":       "Password troppo debole (min. 6 caratteri)",
+    "auth/too-many-requests":   "Troppi tentativi, riprova tra poco",
+    "auth/popup-closed-by-user":"Finestra Google chiusa",
+  })[code] || ("Errore: " + code);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════════════
+async function bootUser(user) {
+  CURRENT_USER = user;
+  CURRENT_FLEET_ID   = "personal";
+  CURRENT_FLEET_ROLE = "admin";
+
+  const appEl = document.getElementById("app");
+  const setStatus = msg => {
+    const s = document.getElementById("boot-status");
+    if (s) s.textContent = msg;
+  };
+  appEl.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:14px">
+      <div class="spinner" style="width:36px;height:36px;border-width:3px"></div>
+      <div id="boot-status" style="color:#8b95a8;font-size:13px">Connessione...</div>
+    </div>`;
+
+  try {
+    setStatus("Controllo dati esistenti...");
+    const migrated = await migrateIfNeeded();
+    if (migrated) setStatus("✅ Dati migrati al nuovo formato!");
+
+    setStatus("Caricamento flotte condivise...");
+    await loadMyFleets();
+
+    setStatus("Caricamento flotta personale...");
+    const val = await fbLoad();
+    if (!val) {
+      DATA = defaultData(); DATA.vehicles=[]; DATA.scadenze=[];
       await fbSave(DATA);
     } else {
       DATA = normalizeData(val);
@@ -1139,17 +1673,22 @@ async function boot() {
     render();
     startPolling();
   } catch(e) {
-    document.getElementById("app").innerHTML =
+    appEl.innerHTML =
       `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px">
         <div style="font-size:48px">❌</div>
         <div style="color:#ff3b3b;font-size:16px;font-weight:700">Errore connessione</div>
         <div style="color:#8b95a8;font-size:13px;max-width:400px;text-align:center">${e.message}</div>
-        <button class="btn" onclick="boot()">🔄 Riprova</button>
+        <button class="btn" onclick="bootUser(CURRENT_USER)">🔄 Riprova</button>
       </div>`;
   }
 }
 
-window.addEventListener("load", boot);
+window.addEventListener("load", () => {
+  fbAuth.onAuthStateChanged(user => {
+    if (user) { bootUser(user); }
+    else      { showAuthScreen(); }
+  });
+});
 
 </script>
 </body>
