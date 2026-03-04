@@ -1640,9 +1640,17 @@ function setAuthError(msg) {
 
 async function loginGoogle() {
   try {
-    // Usa redirect invece di popup — più affidabile su GitHub Pages e mobile
-    await fbAuth.signInWithRedirect(googleProvider);
-  } catch(e) { setAuthError(authErr(e.code)); }
+    // Prova popup prima (più veloce), fallback a redirect se bloccato
+    await fbAuth.signInWithPopup(googleProvider);
+  } catch(e) {
+    if (e.code === "auth/popup-blocked" || e.code === "auth/popup-closed-by-user") {
+      // Su mobile/browser restrittivi usa redirect
+      try { await fbAuth.signInWithRedirect(googleProvider); }
+      catch(e2) { setAuthError(authErr(e2.code)); }
+    } else {
+      setAuthError(authErr(e.code));
+    }
+  }
 }
 
 async function loginEmail() {
@@ -1671,6 +1679,7 @@ async function doLogout() {
   CURRENT_USER = null;
   DATA = null;
   await fbAuth.signOut();
+  showAuthScreen();
 }
 
 function authErr(code) {
