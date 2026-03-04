@@ -504,8 +504,14 @@ function renderFlotta() {
       </div>
     </div>`;
   }).join("");
-  return `<h2 style="color:#e8eaf0;margin-bottom:16px;font-size:16px;letter-spacing:1px">🚐 I TUOI FURGONI</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">${cards}</div>`;
+  const addBtn = CURRENT_FLEET_ROLE !== "viewer"
+    ? `<button class="btn btn-green" onclick="openAddVehicleModal()" style="padding:5px 14px">+ Aggiungi</button>`
+    : "";
+  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="color:#e8eaf0;font-size:16px;letter-spacing:1px;margin:0">🚐 I TUOI FURGONI</h2>
+    ${addBtn}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">${cards || '<div style="color:#8b95a8;text-align:center;padding:40px;grid-column:1/-1">Nessun veicolo. Clicca + Aggiungi per iniziare.</div>'}</div>`;
 }
 
 // ───────────────────── VEHICLE DETAIL ────────────────────────────────────
@@ -532,6 +538,16 @@ function renderVehicleDetail() {
           style="background:none;border:1px solid #2e3347;border-radius:6px;color:#8b95a8;cursor:pointer;padding:3px 8px;font-size:13px"
           onmouseover="this.style.borderColor='#3d7eff';this.style.color='#3d7eff'"
           onmouseout="this.style.borderColor='#2e3347';this.style.color='#8b95a8'">✏️</button>
+        ${CURRENT_FLEET_ROLE !== "viewer" ? `
+        <button onclick="openMigrateVehicleModal(${v.id})" title="Migra in altra flotta"
+          style="background:none;border:1px solid #2e3347;border-radius:6px;color:#8b95a8;cursor:pointer;padding:3px 8px;font-size:13px"
+          onmouseover="this.style.borderColor='#ffd166';this.style.color='#ffd166'"
+          onmouseout="this.style.borderColor='#2e3347';this.style.color='#8b95a8'">🔀</button>
+        <button onclick="confirmRemoveVehicle(${v.id})" title="Rimuovi veicolo"
+          style="background:none;border:1px solid #2e3347;border-radius:6px;color:#8b95a8;cursor:pointer;padding:3px 8px;font-size:13px"
+          onmouseover="this.style.borderColor='#ff3b3b';this.style.color='#ff3b3b'"
+          onmouseout="this.style.borderColor='#2e3347';this.style.color='#8b95a8'">🗑️</button>
+        ` : ""}
       </div>
       <div style="color:#3d7eff;font-weight:700;flex-shrink:0">${v.km.toLocaleString("it-IT")} km</div>
     </div>
@@ -983,9 +999,20 @@ function openModal(type, vehicleId) {
       <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
       <button class="btn" onclick="submitEditVehicle(${vehicleId})">Salva modifiche</button></div>`;
 
+  if (type==="addVehicle") body = `
+    <div class="field"><label>Targa</label><input id="m_targa" type="text" placeholder="ES123AB"
+      style="text-transform:uppercase;letter-spacing:2px;font-weight:700"/></div>
+    <div class="field"><label>Modello</label><input id="m_modello" type="text" placeholder="Es. Fiat Ducato"/></div>
+    <div class="field"><label>Anno</label><input id="m_anno" type="number" placeholder="${new Date().getFullYear()}"/></div>
+    <div class="field"><label>Km attuali</label><input id="m_km" type="number" placeholder="0"/></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-green" onclick="submitAddVehicle()">Aggiungi</button></div>`;
+
   const titles = {
     addScadenza:"Aggiungi Scadenza", addManutenzione:"Aggiungi Manutenzione",
-    addKm:"Aggiorna Chilometri", addGomma:"Cambio Gomme", editVehicle:"Modifica Furgone"
+    addKm:"Aggiorna Chilometri", addGomma:"Cambio Gomme", editVehicle:"Modifica Furgone",
+    addVehicle:"Aggiungi Veicolo"
   };
 
   const overlay = document.createElement("div");
@@ -1308,6 +1335,140 @@ async function startPolling() {
   }, 15000);
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VEHICLE ADD / REMOVE / MIGRATE
+// ═══════════════════════════════════════════════════════════════════════════
+function openAddVehicleModal() {
+  if (!canEdit()) return;
+  openModal("addVehicle", null);
+}
+
+function submitAddVehicle() {
+  const targa   = (document.getElementById("m_targa")?.value||"").trim().toUpperCase();
+  const modello = document.getElementById("m_modello")?.value?.trim()||"";
+  const anno    = Number(document.getElementById("m_anno")?.value) || new Date().getFullYear();
+  const km      = Number(document.getElementById("m_km")?.value) || 0;
+  if (!targa || !modello) { alert("Inserisci almeno targa e modello"); return; }
+  if (DATA.vehicles.find(v => v.targa === targa)) { alert("Targa già presente"); return; }
+  const maxId = Math.max(0, ...DATA.vehicles.map(v => v.id||0));
+  DATA.vehicles.push({ id: maxId+1, targa, modello, anno, km, note:"", checklist:[] });
+  saveData(); closeModal(); renderContent();
+  showAlert("✅ " + targa + " aggiunto!");
+}
+
+function confirmRemoveVehicle(vid) {
+  if (!canEdit()) return;
+  const v = DATA.vehicles.find(x => x.id === vid);
+  if (!v) return;
+  if (!confirm("Rimuovere " + v.targa + " (" + v.modello + ")?\nVerranno eliminate anche scadenze, manutenzioni e km log collegati.")) return;
+  // Rimuovi veicolo e tutti i dati collegati
+  DATA.vehicles     = DATA.vehicles.filter(x => x.id !== vid);
+  DATA.scadenze     = DATA.scadenze.filter(x => x.vehicleId !== vid);
+  DATA.manutenzioni = DATA.manutenzioni.filter(x => x.vehicleId !== vid);
+  DATA.kmLog        = DATA.kmLog.filter(x => x.vehicleId !== vid);
+  DATA.gomme        = DATA.gomme.filter(x => x.vehicleId !== vid);
+  SELECTED_VEHICLE  = null;
+  VIEW = "flotta";
+  saveData(); renderContent();
+  showAlert("✅ Veicolo rimosso");
+}
+
+function openMigrateVehicleModal(vid) {
+  if (!canEdit()) return;
+  const v = DATA.vehicles.find(x => x.id === vid);
+  if (!v) return;
+
+  // Flotte disponibili (escludi quella attuale, solo quelle dove sei admin/editor)
+  const targets = Object.entries(MY_FLEETS)
+    .filter(([fid, f]) => fid !== CURRENT_FLEET_ID && (f.role === "admin" || f.role === "editor"));
+  // Aggiungi flotta personale se non è quella corrente
+  const showPersonal = CURRENT_FLEET_ID !== "personal";
+
+  if (!targets.length && !showPersonal) {
+    showAlert("⚠️ Nessuna altra flotta disponibile dove hai i permessi di scrittura", false);
+    return;
+  }
+
+  document.getElementById("fleet-overlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "overlay"; overlay.id = "fleet-overlay";
+  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+
+  const personalBtn = showPersonal
+    ? '<button class="btn" onclick="migrateVehicle(' + vid + ',\'personal\')" style="width:100%;text-align:left;padding:10px 14px;margin-bottom:6px">🙋 Flotta personale</button>'
+    : '';
+  const fleetBtns = targets.map(([fid, f]) =>
+    '<button class="btn" onclick="migrateVehicle(' + vid + ',\'' + fid + '\')" style="width:100%;text-align:left;padding:10px 14px;margin-bottom:6px">🏢 ' + esc(f.name) + '</button>'
+  ).join('');
+
+  overlay.innerHTML = '<div class="modal" style="max-width:380px">'
+    + '<div class="modal-header"><h3>🔀 Migra ' + esc(v.targa) + '</h3>'
+    + '<button class="modal-close" onclick="document.getElementById(\'fleet-overlay\').remove()">×</button></div>'
+    + '<p style="color:#8b95a8;font-size:13px;margin-bottom:14px">Scegli la flotta di destinazione. Il veicolo e tutti i suoi dati verranno spostati.</p>'
+    + personalBtn + fleetBtns
+    + '<div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;color:#8b95a8;font-size:12px;cursor:pointer">'
+    + '<input type="checkbox" id="migrate-keep" style="accent-color:#3d7eff"/> Mantieni una copia anche in questa flotta</label></div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+async function migrateVehicle(vid, targetFleetId) {
+  document.getElementById("fleet-overlay")?.remove();
+  const keepCopy = document.getElementById("migrate-keep")?.checked || false;
+  const v = DATA.vehicles.find(x => x.id === vid);
+  if (!v) return;
+
+  try {
+    // Carica flotta destinazione
+    let targetData;
+    if (targetFleetId === "personal") {
+      targetData = await fbGet(fbUserUrl(CURRENT_USER.uid));
+    } else {
+      targetData = await fbGet(fbFleetDataUrl(targetFleetId));
+    }
+    const dest = targetData ? normalizeData(targetData) : defaultData();
+
+    // Calcola nuovo ID nella flotta destinazione
+    const maxId = Math.max(0, ...dest.vehicles.map(x => x.id||0));
+    const newVid = maxId + 1;
+
+    // Copia veicolo
+    dest.vehicles.push({...v, id: newVid});
+
+    // Copia dati collegati con nuovo vehicleId
+    ["scadenze","manutenzioni","kmLog","gomme"].forEach(key => {
+      const items = (DATA[key]||[]).filter(x => x.vehicleId === vid);
+      const maxItemId = Math.max(0, ...(dest[key]||[]).map(x => x.id||0));
+      items.forEach((item, i) => dest[key].push({...item, id: maxItemId+i+1, vehicleId: newVid}));
+    });
+
+    // Salva nella flotta destinazione
+    if (targetFleetId === "personal") {
+      await fbPut(fbUserUrl(CURRENT_USER.uid), dest);
+    } else {
+      await fbPut(fbFleetDataUrl(targetFleetId), dest);
+    }
+
+    // Rimuovi dalla flotta corrente (a meno che keepCopy sia true)
+    if (!keepCopy) {
+      DATA.vehicles     = DATA.vehicles.filter(x => x.id !== vid);
+      DATA.scadenze     = DATA.scadenze.filter(x => x.vehicleId !== vid);
+      DATA.manutenzioni = DATA.manutenzioni.filter(x => x.vehicleId !== vid);
+      DATA.kmLog        = DATA.kmLog.filter(x => x.vehicleId !== vid);
+      DATA.gomme        = DATA.gomme.filter(x => x.vehicleId !== vid);
+      await fbSave(DATA);
+      SELECTED_VEHICLE = null; VIEW = "flotta";
+    }
+
+    const destName = targetFleetId === "personal" ? "Flotta personale" : (MY_FLEETS[targetFleetId]?.name || targetFleetId);
+    renderContent();
+    showAlert((keepCopy ? "📋 Copiato" : "🔀 Migrato") + " " + v.targa + " → " + destName);
+  } catch(e) {
+    showAlert("❌ Errore migrazione: " + e.message, false);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // FLEET MANAGER UI
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1335,9 +1496,7 @@ function buildFleetManagerHTML() {
     const adminBtn = f.role === "admin"
       ? '<button class="btn" onclick="openInvitePanel(\'' + fid + '\')" style="font-size:11px;padding:3px 9px">🔗</button>'
       : '';
-    const leaveBtn = f.role !== "admin"
-      ? '<button onclick="leaveFleet(\'' + fid + '\')" title="Abbandona" style="background:none;border:none;color:#ff3b3b66;cursor:pointer;font-size:18px;line-height:1">×</button>'
-      : '';
+    const leaveBtn = '<button onclick="leaveFleet(\'' + fid + '\')" title="' + (f.role==="admin"?"Elimina flotta":"Abbandona flotta") + '" style="background:none;border:none;color:#ff3b3b66;cursor:pointer;font-size:18px;line-height:1">×</button>';
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;background:' + bg + ';border:1px solid ' + bdr + '">'
       + '<div style="flex:1;min-width:0">'
       + '<div style="color:#e8eaf0;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(f.name) + '</div>'
@@ -1507,15 +1666,27 @@ async function switchFleet(fleetId) {
 }
 
 async function leaveFleet(fleetId) {
-  if (!confirm("Sei sicuro di voler abbandonare questa flotta?")) return;
+  const isAdmin = MY_FLEETS[fleetId]?.role === "admin";
+  const msg = isAdmin
+    ? "Sei admin: eliminare la flotta la rimuoverà per tutti i membri. Continuare?"
+    : "Sei sicuro di voler abbandonare questa flotta?";
+  if (!confirm(msg)) return;
   try {
-    await fbDelete(FB_BASE+"/fleets/"+fleetId+"/members/"+CURRENT_USER.uid+".json");
-    await fbDelete(FB_BASE+"/userFleets/"+CURRENT_USER.uid+"/"+fleetId+".json");
+    if (isAdmin) {
+      // Admin: elimina tutta la flotta
+      await fbDelete(FB_BASE+"/fleets/"+fleetId+".json");
+      // Rimuovi da tutti gli userFleets (best-effort — rimuove almeno il proprio)
+      await fbDelete(FB_BASE+"/userFleets/"+CURRENT_USER.uid+"/"+fleetId+".json");
+    } else {
+      // Editor/Viewer: abbandona solo per sé
+      await fbDelete(FB_BASE+"/fleets/"+fleetId+"/members/"+CURRENT_USER.uid+".json");
+      await fbDelete(FB_BASE+"/userFleets/"+CURRENT_USER.uid+"/"+fleetId+".json");
+    }
     delete MY_FLEETS[fleetId];
     document.getElementById("fleet-overlay")?.remove();
     if (CURRENT_FLEET_ID===fleetId) await switchFleet("personal");
     else openFleetManager();
-    showAlert("✅ Flotta abbandonata");
+    showAlert(isAdmin ? "✅ Flotta eliminata" : "✅ Flotta abbandonata");
   } catch(e) { showAlert("❌ "+e.message, false); }
 }
 
