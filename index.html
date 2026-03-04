@@ -1234,15 +1234,11 @@ async function createFleet(name) {
 async function generateAndPublishInvite(fleetId, role) {
   const code = genInviteCode();
   const expiresAt = Date.now()+24*60*60*1000;
-  // Salva sia nella flotta che nell'indice globale per ricerca rapida
-  await Promise.all([
-    fbPut(FB_BASE+"/fleets/"+fleetId+"/invites/"+code+".json?auth="+await fbToken(),
-      {role, createdBy:CURRENT_USER.uid, expiresAt}).catch(()=>null),
-    fetch(FB_BASE+"/inviteCodes/"+code+".json?auth="+await fbToken(), {
-      method:"PUT", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({fleetId, role, expiresAt})
-    })
-  ]);
+  const inviteData = {role, createdBy:CURRENT_USER.uid, expiresAt};
+  // Salva nell'indice globale (percorso senza auth nel path)
+  await fbPut(FB_BASE+"/inviteCodes/"+code+".json", {fleetId, role, expiresAt});
+  // Salva anche nella flotta (best-effort)
+  await fbPut(FB_BASE+"/fleets/"+fleetId+"/invites/"+code+".json", inviteData).catch(()=>null);
   return code;
 }
 
@@ -1681,16 +1677,19 @@ async function bootUser(user) {
 }
 
 window.addEventListener("load", () => {
+  // Timeout di sicurezza: se Firebase non risponde in 8s, mostra login
+  const authTimeout = setTimeout(() => {
+    console.warn("Firebase Auth timeout — showing login screen");
+    showAuthScreen();
+  }, 8000);
+
   // Gestisci il risultato del redirect Google (se presente)
-  fbAuth.getRedirectResult().then(result => {
-    // Il redirect result viene gestito automaticamente da onAuthStateChanged
-  }).catch(e => {
-    if (e.code !== "auth/no-current-user") {
-      console.error("Redirect error:", e);
-    }
+  fbAuth.getRedirectResult().catch(e => {
+    if (e.code !== "auth/no-current-user") console.warn("Redirect:", e.code);
   });
 
   fbAuth.onAuthStateChanged(user => {
+    clearTimeout(authTimeout);
     if (user) { bootUser(user); }
     else      { showAuthScreen(); }
   });
