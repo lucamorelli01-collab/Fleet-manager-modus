@@ -1,155 +1,474 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Fleet Manager</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
-
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0f1117; color: #e8eaf0; font-family: 'Aptos','Nunito','Segoe UI',sans-serif; min-height: 100vh; }
-    input, select, textarea, button { font-family: inherit; }
+    /* ══ MD3 COLOR TOKENS (dark scheme) ═════════════════════════════════ */
+    :root {
+      --pri:       #A8C7FA;  --on-pri:      #0B3A73;
+      --pri-con:   #1B5299;  --on-pri-con:  #D6E4FF;
+      --sec:       #BBC4D2;  --on-sec:      #253040;
+      --sec-con:   #384758;  --on-sec-con:  #D7E3F7;
+      --ter:       #D4BBDF;  --on-ter:      #3A2746;
+      --err:       #FFB4AB;  --on-err:      #680005;
+      --err-con:   #93000A;
+      --suc:       #72D9A0;
+      --warn:      #FFC87A;
 
-    /* ── scrollbar ── */
-    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #0f1117; }
-    ::-webkit-scrollbar-thumb { background: #2e3347; border-radius: 3px; }
+      --bg:        #0F1117;
+      --sur:       #0F1117;  --on-sur:      #E3E2E8;
+      --sur-var:   #45474F;  --on-sur-var:  #C5C6D0;
+      --out:       #8F9099;  --out-var:     #45474F;
 
-    /* ── utility ── */
-    .badge { border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
-    .card  { background: #1a1d26; border-radius: 10px; border: 1px solid #2e3347; }
+      --s0:  #0B0D12;   /* surface-container-lowest  */
+      --s1:  #191C21;   /* surface-container-low     */
+      --s2:  #1D2026;   /* surface-container         */
+      --s3:  #282A30;   /* surface-container-high    */
+      --s4:  #323539;   /* surface-container-highest */
 
-    /* ── header ── */
-    #header { background:#1a1d26; border-bottom:1px solid #2e3347; display:flex; align-items:center;
-              justify-content:space-between; padding:8px 16px; position:sticky; top:0; z-index:100; min-height:56px; gap:8px; flex-wrap:wrap; }
-    #header .logo { display:flex; align-items:center; gap:10px; flex-shrink:0; }
-    #header .logo span { font-weight:800; font-size:14px; letter-spacing:2px; }
-    #nav { display:flex; gap:4px; flex-wrap:wrap; }
-    #nav button { background:transparent; border:none; color:#8b95a8; padding:6px 10px; border-radius:6px;
-                  cursor:pointer; font-size:12px; font-weight:600; letter-spacing:.5px; transition:all .15s; }
-    #nav button.active { background:#3d7eff22; color:#3d7eff; }
-    #header-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-    @media (max-width:600px) {
-      #header { padding:8px 10px; }
-      #nav button { padding:5px 7px; font-size:11px; }
-      .btn { padding:5px 8px; font-size:11px; }
+      --drawer: 272px;
+      --rail:   80px;
+      --topbar: 60px;
+      --radius-xl: 28px;
+      --radius-l:  16px;
+      --radius-m:  12px;
+      --radius-s:  8px;
+      --radius-full: 100px;
+
+      --e1: 0 1px 3px rgba(0,0,0,.35),0 1px 2px rgba(0,0,0,.2);
+      --e2: 0 2px 6px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.25);
+      --e3: 0 4px 12px rgba(0,0,0,.35),0 2px 4px rgba(0,0,0,.2);
+      --ease: cubic-bezier(.2,0,0,1);
     }
 
-    /* ── content ── */
-    #content { max-width:900px; margin:0 auto; padding:20px; }
+    /* ══ RESET ════════════════════════════════════════════════════════════ */
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{
+      background:var(--bg); color:var(--on-sur);
+      font-family:'DM Sans',system-ui,sans-serif;
+      font-size:14px; line-height:1.5;
+      min-height:100vh; overflow-x:hidden;
+    }
+    input,select,textarea,button{font-family:inherit}
+    ::-webkit-scrollbar{width:4px;height:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:var(--out-var);border-radius:2px}
 
-    /* ── stat cards ── */
-    .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:24px; }
-    .stat-card { border-radius:10px; padding:16px; }
+    /* ══ SHELL ════════════════════════════════════════════════════════════ */
+    #app-shell{display:flex;min-height:100vh}
 
-    /* ── forms ── */
-    .field { margin-bottom:14px; }
-    .field label { display:block; color:#8b95a8; font-size:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:.5px; }
-    .field input, .field select, .field textarea {
-      width:100%; background:#0f1117; border:1px solid #2e3347; border-radius:6px;
-      padding:8px 12px; color:#e8eaf0; font-size:14px; outline:none; }
-    .field textarea { resize:vertical; line-height:1.6; }
+    /* ══ SCRIM ════════════════════════════════════════════════════════════ */
+    #nav-scrim{
+      position:fixed;inset:0;background:rgba(0,0,0,.55);
+      z-index:299;opacity:0;pointer-events:none;
+      transition:opacity .3s var(--ease);
+    }
+    #nav-scrim.visible{opacity:1;pointer-events:all}
 
-    /* ── buttons ── */
-    .btn        { padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600; border:none; background:#3d7eff; color:#fff; }
-    .btn-ghost  { background:transparent; border:1px solid #2e3347; color:#8b95a8; }
-    .btn-danger { background:#ff3b3b22; border:1px solid #ff3b3b44; color:#ff3b3b; }
-    .btn-green  { background:#06d6a022; border:1px solid #06d6a044; color:#06d6a0; }
-    .btn-yellow { background:#ffd16622; border:1px solid #ffd16644; color:#ffd166; }
-    .btn:disabled { opacity:.5; cursor:not-allowed; }
+    /* ══ DRAWER ═══════════════════════════════════════════════════════════ */
+    #nav-drawer{
+      position:fixed;left:0;top:0;bottom:0;
+      width:var(--drawer);
+      background:var(--s1);
+      z-index:300;
+      display:flex;flex-direction:column;
+      transform:translateX(-100%);
+      transition:transform .3s var(--ease),width .3s var(--ease);
+      overflow:hidden;will-change:transform;
+    }
+    #nav-drawer.open{transform:translateX(0);box-shadow:var(--e3)}
 
-    /* ── modal ── */
-    .overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center;
-               justify-content:center; z-index:1000; padding:16px; }
-    .modal   { background:#1a1d26; border-radius:12px; padding:24px; width:100%; max-width:480px;
-               border:1px solid #2e3347; max-height:90vh; overflow-y:auto; }
-    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-    .modal-header h3 { font-size:18px; }
-    .modal-close { background:none; border:none; color:#666; font-size:22px; cursor:pointer; }
+    /* desktop: rail always visible, expands on hover/toggle */
+    @media(min-width:1024px){
+      #nav-drawer{transform:translateX(0);width:var(--rail);border-right:1px solid var(--out-var)}
+      #nav-drawer.expanded{width:var(--drawer);box-shadow:var(--e2)}
+      #nav-scrim{display:none}
+      #shell-main{margin-left:var(--rail);transition:margin-left .3s var(--ease)}
+      #shell-main.drawer-expanded{margin-left:var(--drawer)}
+      .nav-label,.drawer-wordmark,.drawer-fleet-name,.drawer-section{
+        opacity:0;pointer-events:none;width:0;overflow:hidden;white-space:nowrap;
+        transition:opacity .2s,width .2s;
+      }
+      #nav-drawer.expanded .nav-label,
+      #nav-drawer.expanded .drawer-wordmark,
+      #nav-drawer.expanded .drawer-fleet-name,
+      #nav-drawer.expanded .drawer-section{
+        opacity:1;pointer-events:auto;width:auto;
+      }
+    }
+    @media(max-width:1023px){
+      #shell-main{margin-left:0}
+    }
 
-    /* ── tabs ── */
-    .tabs { display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
-    .tab  { padding:8px 14px; border:none; cursor:pointer; font-size:12px; font-weight:600;
-            border-radius:6px; letter-spacing:.5px; background:transparent; color:#8b95a8; }
-    .tab.active { background:#3d7eff; color:#fff; }
+    /* drawer header */
+    .drawer-header{
+      display:flex;align-items:center;gap:12px;
+      padding:14px 14px 10px;min-height:var(--topbar);flex-shrink:0;
+      border-bottom:1px solid var(--out-var);
+    }
+    .drawer-icon{
+      width:40px;height:40px;border-radius:var(--radius-m);
+      background:var(--pri-con);color:var(--on-pri-con);
+      display:flex;align-items:center;justify-content:center;
+      font-size:20px;flex-shrink:0;
+    }
+    .drawer-wordmark{font-size:15px;font-weight:700;color:var(--on-sur);letter-spacing:.5px}
+    .drawer-fleet-name{font-size:11px;color:var(--on-sur-var);margin-top:1px;max-width:180px;overflow:hidden;text-overflow:ellipsis}
 
-    /* ── rows ── */
-    .row      { background:#0f1117; border-radius:8px; padding:12px 14px; margin-bottom:8px; border:1px solid #2e3347; }
-    .row-flex { display:flex; justify-content:space-between; align-items:center; }
+    /* drawer nav items */
+    .drawer-section{
+      font-size:11px;font-weight:600;letter-spacing:1px;
+      color:var(--on-sur-var);text-transform:uppercase;
+      padding:16px 16px 4px;
+    }
+    .nav-item{
+      display:flex;align-items:center;gap:14px;
+      height:52px;border-radius:var(--radius-full);
+      margin:2px 8px;padding:0 16px;
+      cursor:pointer;border:none;background:none;
+      color:var(--on-sur-var);font-size:14px;font-weight:500;
+      text-align:left;width:calc(100% - 16px);
+      transition:background .15s,color .15s;
+      white-space:nowrap;overflow:hidden;
+    }
+    .nav-item:hover{background:rgba(226,226,233,.08)}
+    .nav-item.active{background:var(--sec-con);color:var(--on-sec-con);font-weight:600}
+    .nav-icon{font-size:20px;flex-shrink:0;width:24px;text-align:center;line-height:1}
 
-    /* ── vehicle card ── */
-    .v-card { cursor:pointer; padding:16px; transition:border-color .2s; }
+    @media(min-width:1024px){
+      #nav-drawer:not(.expanded) .nav-item{
+        justify-content:center;padding:0;
+        width:52px;border-radius:var(--radius-l);margin:2px auto;
+      }
+    }
 
-    /* ── spinner ── */
-    .spinner { display:inline-block; width:18px; height:18px; border:2px solid #3d7eff44;
-               border-top-color:#3d7eff; border-radius:50%; animation:spin .6s linear infinite; }
-    @keyframes spin { to { transform:rotate(360deg); } }
+    /* drawer footer */
+    .drawer-footer{
+      margin-top:auto;padding:8px;
+      border-top:1px solid var(--out-var);
+    }
+    .user-tile{
+      display:flex;align-items:center;gap:10px;
+      padding:8px 10px;border-radius:var(--radius-m);
+      cursor:pointer;transition:background .15s;overflow:hidden;
+    }
+    .user-tile:hover{background:var(--s3)}
+    .user-avatar{
+      width:36px;height:36px;border-radius:50%;
+      background:var(--pri-con);color:var(--on-pri-con);
+      flex-shrink:0;display:flex;align-items:center;justify-content:center;
+      font-size:15px;font-weight:700;overflow:hidden;
+    }
+    .user-avatar img{width:100%;height:100%;object-fit:cover}
+    .user-name{font-size:13px;font-weight:600;color:var(--on-sur);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .user-role{font-size:11px;color:var(--on-sur-var)}
 
-    /* ── alert banner ── */
-    #alert-banner { position:fixed; bottom:16px; right:16px; padding:10px 18px; border-radius:8px;
-                    font-size:13px; font-weight:600; z-index:2000; display:none; }
+    /* drawer action btns (bottom) */
+    .drawer-actions{display:flex;flex-direction:column;gap:2px;padding:4px 8px}
+    .drawer-action-btn{
+      display:flex;align-items:center;gap:14px;
+      height:44px;border-radius:var(--radius-full);
+      padding:0 16px;cursor:pointer;border:none;background:none;
+      color:var(--on-sur-var);font-size:13px;font-weight:500;
+      text-align:left;width:100%;
+      transition:background .15s,color .15s;white-space:nowrap;overflow:hidden;
+    }
+    .drawer-action-btn:hover{background:rgba(226,226,233,.08)}
+    @media(min-width:1024px){
+      #nav-drawer:not(.expanded) .drawer-action-btn{
+        justify-content:center;padding:0;
+        width:52px;border-radius:var(--radius-l);margin:0 auto;
+      }
+    }
 
-    /* ── auth ── */
-    .auth-screen { display:flex; flex-direction:column; align-items:center; justify-content:center;
-                   min-height:100vh; padding:20px; }
-    .auth-box { background:#1a1d26; border:1px solid #2e3347; border-radius:16px;
-                padding:32px; width:100%; max-width:400px; }
-    .auth-box h2 { color:#e8eaf0; font-size:20px; font-weight:800; margin-bottom:4px; }
-    .auth-box p  { color:#8b95a8; font-size:13px; margin-bottom:24px; }
-    .auth-tabs { display:flex; margin-bottom:24px; border-bottom:1px solid #2e3347; }
-    .auth-tab  { flex:1; padding:10px; text-align:center; font-size:13px; font-weight:700;
-                 cursor:pointer; color:#8b95a8; border:none; background:none;
-                 border-bottom:2px solid transparent; transition:.15s; }
-    .auth-tab.active { color:#3d7eff; border-bottom-color:#3d7eff; }
-    .auth-divider { display:flex; align-items:center; gap:10px; margin:16px 0; color:#8b95a8; font-size:12px; }
-    .auth-divider::before,.auth-divider::after { content:''; flex:1; height:1px; background:#2e3347; }
-    .auth-error { color:#ff3b3b; font-size:12px; margin-top:8px; min-height:18px; }
-    .btn-google { width:100%; padding:10px; border-radius:8px; border:1px solid #2e3347; background:#1a1d26;
-                  color:#e8eaf0; font-size:14px; font-weight:600; cursor:pointer; display:flex;
-                  align-items:center; justify-content:center; gap:10px; transition:border-color .15s; }
-    .btn-google:hover { border-color:#3d7eff; }
-    #user-chip { display:flex; align-items:center; gap:6px; }
-    #user-chip img { width:24px; height:24px; border-radius:50%; object-fit:cover; }
-    #user-chip .uname { color:#8b95a8; font-size:11px; max-width:90px;
-                        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    /* ══ MAIN SHELL ═══════════════════════════════════════════════════════ */
+    #shell-main{flex:1;display:flex;flex-direction:column;min-width:0}
 
-    /* ── auth ── */
-    .auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px}
-    .auth-box{background:#1a1d26;border:1px solid #2e3347;border-radius:16px;padding:32px;width:100%;max-width:400px}
-    .auth-tabs{display:flex;margin-bottom:24px;border-bottom:1px solid #2e3347}
-    .auth-tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:#8b95a8;border:none;background:none;border-bottom:2px solid transparent;transition:.15s}
-    .auth-tab.active{color:#3d7eff;border-bottom-color:#3d7eff}
-    .auth-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:#8b95a8;font-size:12px}
-    .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:#2e3347}
-    .auth-error{color:#ff3b3b;font-size:12px;margin-top:6px;min-height:16px}
-    .btn-google{width:100%;padding:10px;border-radius:8px;border:1px solid #2e3347;background:#1a1d26;color:#e8eaf0;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:border-color .15s}
-    .btn-google:hover{border-color:#3d7eff}
-    #user-chip{display:flex;align-items:center;gap:6px}
-    #user-chip img{width:24px;height:24px;border-radius:50%}
-    #user-chip .uname{color:#8b95a8;font-size:11px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* ══ TOPBAR ═══════════════════════════════════════════════════════════ */
+    #topbar{
+      position:sticky;top:0;z-index:200;
+      background:var(--s2);
+      height:var(--topbar);
+      display:flex;align-items:center;gap:4px;
+      padding:0 8px;
+      border-bottom:1px solid var(--out-var);
+    }
+    .topbar-icon-btn{
+      width:44px;height:44px;border-radius:50%;border:none;
+      background:none;color:var(--on-sur-var);
+      cursor:pointer;font-size:20px;
+      display:flex;align-items:center;justify-content:center;
+      transition:background .15s;flex-shrink:0;
+    }
+    .topbar-icon-btn:hover{background:var(--s4)}
+    #topbar-title{
+      flex:1;font-size:18px;font-weight:600;color:var(--on-sur);
+      padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    #topbar-actions{display:flex;align-items:center;gap:2px}
+    #saving-indicator{
+      font-size:12px;color:var(--suc);font-weight:500;
+      padding:0 8px;display:none;align-items:center;gap:6px;
+    }
+    #saving-indicator.visible{display:flex}
 
-    /* ── checklist ── */
-    .checklist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:8px; margin-top:12px; }
-    .checklist-item { display:flex; align-items:center; gap:10px; background:#1a1d26; border:1px solid #2e3347;
-                      border-radius:8px; padding:10px 14px; cursor:pointer; transition:border-color .15s; }
-    .checklist-item:hover { border-color:#3d7eff55; }
-    .checklist-item.checked { border-color:#06d6a044; background:#06d6a008; }
-    .checklist-item input[type=checkbox] { width:16px; height:16px; accent-color:#06d6a0; cursor:pointer; flex-shrink:0; }
-    .checklist-item label { color:#e8eaf0; font-size:13px; cursor:pointer; flex:1; }
-    .checklist-item.checked label { color:#8b95a8; text-decoration:line-through; }
+    /* ══ CONTENT ══════════════════════════════════════════════════════════ */
+    #main-content{
+      flex:1;padding:24px;
+      max-width:960px;width:100%;margin:0 auto;
+    }
+    @media(max-width:600px){#main-content{padding:12px}}
+
+    /* ══ PAGE HEADER ══════════════════════════════════════════════════════ */
+    .page-header{
+      display:flex;align-items:flex-start;justify-content:space-between;
+      margin-bottom:24px;flex-wrap:wrap;gap:12px;
+    }
+    .page-title{font-size:22px;font-weight:700;color:var(--on-sur);letter-spacing:-.3px}
+    .page-subtitle{font-size:13px;color:var(--on-sur-var);margin-top:3px}
+
+    /* ══ CARDS ════════════════════════════════════════════════════════════ */
+    .card{background:var(--s2);border-radius:var(--radius-l);padding:16px}
+    .card-filled{background:var(--s3);border-radius:var(--radius-l);padding:16px}
+    .card-outlined{background:var(--sur);border-radius:var(--radius-l);padding:16px;border:1px solid var(--out-var)}
+
+    /* stat cards */
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:28px}
+    .stat-card{
+      background:var(--s2);border-radius:var(--radius-l);padding:20px 18px;
+      border:1px solid var(--out-var);
+      transition:background .15s;
+    }
+    .stat-icon{font-size:26px;margin-bottom:10px}
+    .stat-value{font-size:30px;font-weight:700;color:var(--on-sur);line-height:1;font-family:'DM Mono',monospace}
+    .stat-label{font-size:12px;color:var(--on-sur-var);margin-top:5px;font-weight:500;letter-spacing:.3px}
+
+    /* vehicle cards */
+    .v-card{
+      background:var(--s2);border-radius:var(--radius-l);padding:18px;
+      cursor:pointer;transition:background .2s,box-shadow .2s;
+      border:1px solid var(--out-var);position:relative;overflow:hidden;
+    }
+    .v-card::before{
+      content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+      background:var(--pri-con);opacity:0;transition:opacity .2s;
+    }
+    .v-card:hover{background:var(--s3);box-shadow:var(--e2)}
+    .v-card:hover::before{opacity:1}
+    .v-card.urgent::before{background:var(--err);opacity:1}
+    .v-card.urgent{border-color:rgba(255,180,171,.2)}
+    .v-targa{font-size:19px;font-weight:700;color:var(--on-sur);letter-spacing:2.5px;font-family:'DM Mono',monospace}
+    .v-modello{font-size:13px;color:var(--on-sur-var);margin-top:3px}
+    .v-km{font-size:19px;font-weight:600;color:var(--pri);font-family:'DM Mono',monospace}
+    .v-km-label{font-size:11px;color:var(--on-sur-var)}
+
+    /* ══ BADGE / CHIP ═════════════════════════════════════════════════════ */
+    .badge{
+      display:inline-flex;align-items:center;gap:4px;
+      padding:3px 10px;border-radius:var(--radius-s);
+      font-size:11px;font-weight:700;letter-spacing:.4px;
+    }
+    .chip{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:5px 14px;border-radius:var(--radius-full);
+      font-size:13px;font-weight:500;
+      border:1px solid var(--out-var);color:var(--on-sur-var);
+      background:none;cursor:pointer;transition:background .15s;
+    }
+    .chip:hover{background:var(--s3)}
+    .chip.active{background:var(--sec-con);color:var(--on-sec-con);border-color:transparent}
+
+    /* ══ BUTTONS ══════════════════════════════════════════════════════════ */
+    .btn{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:9px 22px;border-radius:var(--radius-full);border:none;
+      font-size:14px;font-weight:600;cursor:pointer;
+      background:var(--pri);color:var(--on-pri);
+      transition:box-shadow .15s,opacity .15s;letter-spacing:.1px;
+      white-space:nowrap;
+    }
+    .btn:hover{box-shadow:var(--e1);opacity:.92}
+    .btn:disabled{opacity:.38;cursor:not-allowed}
+    .btn-tonal{background:var(--sec-con);color:var(--on-sec-con)}
+    .btn-outlined{background:transparent;border:1px solid var(--out);color:var(--pri)}
+    .btn-ghost{background:transparent;color:var(--on-sur-var);border:1px solid var(--out-var)}
+    .btn-danger{background:rgba(255,180,171,.12);color:var(--err);border:1px solid rgba(255,180,171,.25)}
+    .btn-green{background:rgba(114,217,160,.12);color:var(--suc);border:1px solid rgba(114,217,160,.25)}
+    .btn-yellow{background:rgba(255,200,122,.1);color:var(--warn);border:1px solid rgba(255,200,122,.25)}
+
+    /* FAB */
+    .fab{
+      position:fixed;bottom:24px;right:24px;
+      border-radius:var(--radius-l);border:none;cursor:pointer;
+      background:var(--pri-con);color:var(--on-pri-con);
+      box-shadow:var(--e3);z-index:100;
+      display:flex;align-items:center;justify-content:center;
+      gap:8px;font-size:14px;font-weight:600;
+      padding:0 20px;height:56px;
+      transition:box-shadow .2s,transform .15s;
+    }
+    .fab:hover{box-shadow:var(--e3);transform:scale(1.03)}
+    .fab-icon{font-size:22px}
+    @media(max-width:600px){.fab{bottom:16px;right:16px}}
+
+    /* ══ FORMS ════════════════════════════════════════════════════════════ */
+    .field{margin-bottom:16px}
+    .field label{
+      display:block;font-size:11px;font-weight:600;
+      color:var(--on-sur-var);margin-bottom:6px;
+      text-transform:uppercase;letter-spacing:.8px;
+    }
+    .field input,.field select,.field textarea{
+      width:100%;background:var(--s3);
+      border:1px solid var(--out-var);
+      border-radius:var(--radius-s);padding:10px 14px;
+      color:var(--on-sur);font-size:14px;outline:none;
+      transition:border-color .15s;
+    }
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--pri)}
+    .field textarea{resize:vertical;line-height:1.6;min-height:80px}
+
+    /* ══ MODAL ════════════════════════════════════════════════════════════ */
+    .overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,.65);
+      display:flex;align-items:center;justify-content:center;
+      z-index:1000;padding:16px;backdrop-filter:blur(3px);
+    }
+    .modal{
+      background:var(--s1);border-radius:var(--radius-xl);
+      padding:26px;width:100%;max-width:480px;
+      max-height:90vh;overflow-y:auto;
+      box-shadow:var(--e3);
+    }
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+    .modal-header h3{font-size:20px;font-weight:700;color:var(--on-sur)}
+    .modal-close{
+      width:40px;height:40px;border-radius:50%;border:none;
+      background:none;color:var(--on-sur-var);font-size:20px;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:background .15s;
+    }
+    .modal-close:hover{background:var(--s3)}
+
+    /* ══ TABS ═════════════════════════════════════════════════════════════ */
+    .tabs{
+      display:flex;gap:4px;margin-bottom:20px;
+      overflow-x:auto;padding-bottom:2px;
+    }
+    .tabs::-webkit-scrollbar{height:0}
+    .tab{
+      padding:8px 16px;border:none;cursor:pointer;
+      font-size:13px;font-weight:500;border-radius:var(--radius-s);
+      background:none;color:var(--on-sur-var);
+      white-space:nowrap;transition:background .15s,color .15s;
+    }
+    .tab:hover{background:var(--s3)}
+    .tab.active{background:var(--sec-con);color:var(--on-sec-con);font-weight:600}
+
+    /* ══ LIST ROWS ════════════════════════════════════════════════════════ */
+    .row{background:var(--s2);border-radius:var(--radius-m);padding:14px 16px;margin-bottom:8px;border:1px solid var(--out-var)}
+    .row-flex{display:flex;justify-content:space-between;align-items:center}
+
+    /* ══ SPINNER ══════════════════════════════════════════════════════════ */
+    .spinner{
+      display:inline-block;border-radius:50%;
+      border:3px solid rgba(168,199,250,.15);
+      border-top-color:var(--pri);
+      animation:spin .7s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ══ SNACKBAR ═════════════════════════════════════════════════════════ */
+    #alert-banner{
+      position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+      padding:12px 24px;border-radius:var(--radius-s);
+      font-size:14px;font-weight:500;z-index:2000;display:none;
+      min-width:220px;text-align:center;box-shadow:var(--e3);
+      white-space:nowrap;
+    }
+
+    /* ══ AUTH ═════════════════════════════════════════════════════════════ */
+    .auth-screen{
+      display:flex;flex-direction:column;align-items:center;
+      justify-content:center;min-height:100vh;padding:20px;
+    }
+    .auth-box{
+      background:var(--s1);border-radius:var(--radius-xl);
+      padding:32px;width:100%;max-width:400px;box-shadow:var(--e2);
+    }
+    .auth-tabs{display:flex;margin-bottom:24px;border-bottom:1px solid var(--out-var)}
+    .auth-tab{
+      flex:1;padding:10px;text-align:center;font-size:14px;font-weight:600;
+      cursor:pointer;color:var(--on-sur-var);border:none;background:none;
+      border-bottom:2px solid transparent;transition:.15s;
+    }
+    .auth-tab.active{color:var(--pri);border-bottom-color:var(--pri)}
+    .auth-divider{
+      display:flex;align-items:center;gap:10px;
+      margin:16px 0;color:var(--on-sur-var);font-size:12px;
+    }
+    .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--out-var)}
+    .auth-error{color:var(--err);font-size:12px;margin-top:6px;min-height:16px}
+    .btn-google{
+      width:100%;padding:12px;border-radius:var(--radius-full);
+      border:1px solid var(--out);background:none;
+      color:var(--on-sur);font-size:14px;font-weight:600;
+      cursor:pointer;display:flex;align-items:center;
+      justify-content:center;gap:10px;transition:background .15s;
+    }
+    .btn-google:hover{background:var(--s3)}
+
+    /* ══ MISC ══════════════════════════════════════════════════════════════ */
+    #user-chip{display:none}
+    .divider{height:1px;background:var(--out-var);margin:12px 0}
+    .viewer-badge{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:3px 10px;border-radius:var(--radius-s);
+      font-size:11px;font-weight:700;
+      background:rgba(255,200,122,.1);color:var(--warn);
+      border:1px solid rgba(255,200,122,.25);
+    }
+
+    /* checklist */
+    .checklist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-top:12px}
+    .checklist-item{
+      display:flex;align-items:center;gap:10px;
+      background:var(--s2);border:1px solid var(--out-var);
+      border-radius:var(--radius-m);padding:10px 14px;cursor:pointer;
+      transition:border-color .15s,background .15s;
+    }
+    .checklist-item:hover{background:var(--s3)}
+    .checklist-item.checked{border-color:rgba(114,217,160,.35);background:rgba(114,217,160,.06)}
+    .checklist-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--suc);cursor:pointer;flex-shrink:0}
+    .checklist-item label{color:var(--on-sur);font-size:13px;cursor:pointer;flex:1}
+    .checklist-item.checked label{color:var(--on-sur-var);text-decoration:line-through}
+
+    /* urgency strip on scadenze rows */
+    .scad-row{position:relative;padding-left:20px}
+    .scad-row::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;border-radius:2px;background:var(--out-var)}
+    .scad-row.red::before{background:var(--err)}
+    .scad-row.orange::before{background:var(--warn)}
+    .scad-row.green::before{background:var(--suc)}
   </style>
 </head>
 <body>
 
-<!-- ALERT BANNER -->
+<!-- SNACKBAR -->
 <div id="alert-banner"></div>
+
+<!-- NAV SCRIM (mobile overlay) -->
+<div id="nav-scrim" onclick="closeDrawer()"></div>
 
 <!-- ROOT -->
 <div id="app">
-  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:12px">
-    <div class="spinner" style="width:36px;height:36px;border-width:3px"></div>
-    <div style="color:#3d7eff;font-size:15px">Caricamento...</div>
-    <div style="color:#8b95a855;font-size:11px">Fleet Manager</div>
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px">
+    <div class="spinner" style="width:40px;height:40px"></div>
+    <div style="color:var(--pri);font-size:15px;font-weight:500">Caricamento...</div>
+    <div style="color:var(--on-sur-var);font-size:12px;opacity:.5">Fleet Manager</div>
   </div>
 </div>
 
@@ -173,10 +492,29 @@ function fmtDate(d) {
   const [y,m,dd] = d.split("-"); return `${dd}/${m}/${y}`;
 }
 function urgColor(n) {
-  if (n < 0)   return "#ff3b3b";
+  if (n < 0)   return "var(--err)";
   if (n <= 14) return "#ff6b35";
-  if (n <= 30) return "#ffd166";
-  return "#06d6a0";
+  if (n <= 30) return "var(--warn)";
+  return "var(--suc)";
+}
+function urgLabel(n) {
+  if (n < 0)   return "SCADUTA";
+  if (n <= 14) return "URGENTE";
+  if (n <= 30) return "IN SCADENZA";
+  return "OK";
+}
+function badge(days) {
+  if (days < 0)   return `<span class="badge" style="background:rgba(255,180,171,.15);color:var(--err)">SCADUTA</span>`;
+  if (days <= 7)  return `<span class="badge" style="background:rgba(255,180,171,.12);color:var(--err)">${days}gg</span>`;
+  if (days <= 30) return `<span class="badge" style="background:rgba(255,200,122,.12);color:var(--warn)">${days}gg</span>`;
+  if (days <= 90) return `<span class="badge" style="background:rgba(168,199,250,.1);color:var(--pri)">${days}gg</span>`;
+  return `<span class="badge" style="background:rgba(114,217,160,.1);color:var(--suc)">${days}gg</span>`;
+}
+function urgColor(n) {
+  if (n < 0)   return "var(--err)";
+  if (n <= 14) return "#ff6b35";
+  if (n <= 30) return "var(--warn)";
+  return "var(--suc)";
 }
 function urgLabel(n) {
   if (n < 0)   return "SCADUTA";
@@ -191,10 +529,10 @@ function badge(days) {
 function showAlert(msg, ok=true) {
   const el = document.getElementById("alert-banner");
   el.textContent = msg;
-  el.style.background = ok ? "#06d6a022" : "#ff3b3b22";
-  el.style.color = ok ? "#06d6a0" : "#ff3b3b";
-  el.style.border = `1px solid ${ok ? "#06d6a044" : "#ff3b3b44"}`;
-  el.style.display = "block";
+  el.style.background = ok ? "var(--s4)" : "var(--err-con)";
+  el.style.color      = ok ? "var(--on-sur)" : "var(--err)";
+  el.style.border     = "none";
+  el.style.display    = "block";
   setTimeout(() => el.style.display = "none", 3500);
 }
 function canEdit() {
@@ -356,169 +694,298 @@ function importExcel(file) {
 // RENDER ENGINE
 // ═══════════════════════════════════════════════════════════════════════════
 function render() {
-  // Sanitize — garantisce che tutti gli array esistano sempre
   if (!DATA) DATA = defaultData();
-  const toArr = (v) => { if (!v) return []; if (Array.isArray(v)) return v; return Object.values(v).filter(x => x && typeof x === "object"); };
+  const toArr = v => { if (!v) return []; if (Array.isArray(v)) return v; return Object.values(v).filter(x => x && typeof x === 'object'); };
   DATA.vehicles     = toArr(DATA.vehicles);
   DATA.scadenze     = toArr(DATA.scadenze);
   DATA.manutenzioni = toArr(DATA.manutenzioni);
   DATA.kmLog        = toArr(DATA.kmLog);
   DATA.gomme        = toArr(DATA.gomme);
   if (!DATA.nextId) DATA.nextId = {scadenza:10,manutenzione:1,km:1,gomma:1};
-  // Prima render: pulisce spinner
-  if (!document.getElementById("header")) {
-    document.getElementById("app").innerHTML = "";
+
+  if (!document.getElementById('app-shell')) {
+    buildShell();
   }
-  renderHeader();
+  updateDrawer();
+  updateTopbar();
   renderContent();
 }
 
-function renderHeader() {
-  const existing = document.getElementById("header");
-  const html = `
-  <div id="header">
-    <div class="logo">
-      <span style="font-size:20px">🚐</span>
-      <div>
-        <span style="color:#e8eaf0;font-size:13px;font-weight:800;letter-spacing:2px">FLEET MANAGER</span>
-        <div style="color:#8b95a8;font-size:10px;margin-top:-1px">
-          ${CURRENT_FLEET_ID==="personal"?"Flotta personale":esc(MY_FLEETS[CURRENT_FLEET_ID]?.name||"")}
+/* ── Build the full shell (once) ─────────────────────────────── */
+function buildShell() {
+  document.getElementById('app').innerHTML = `
+    <div id="app-shell">
+      <!-- NAV DRAWER -->
+      <nav id="nav-drawer">
+        <div class="drawer-header">
+          <div class="drawer-icon">🚐</div>
+          <div style="flex:1;min-width:0">
+            <div class="drawer-wordmark">Fleet Manager</div>
+            <div class="drawer-fleet-name" id="drawer-fleet-label"></div>
+          </div>
         </div>
+
+        <div class="drawer-section">Navigazione</div>
+
+        <button class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
+          <span class="nav-icon">⊞</span>
+          <span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-item" id="nav-flotta" onclick="navigate('flotta')">
+          <span class="nav-icon">🚐</span>
+          <span class="nav-label">Flotta</span>
+        </button>
+        <button class="nav-item" id="nav-scadenze" onclick="navigate('scadenze')">
+          <span class="nav-icon">📅</span>
+          <span class="nav-label">Scadenze</span>
+        </button>
+
+        <div class="divider" style="margin:8px 16px"></div>
+
+        <div class="drawer-actions">
+          <button class="drawer-action-btn" onclick="openFleetManager()">
+            <span class="nav-icon">🏢</span>
+            <span class="nav-label">Gestione flotte</span>
+          </button>
+          ${CURRENT_FLEET_ROLE !== 'viewer' ? `
+          <button class="drawer-action-btn" onclick="exportExcel()">
+            <span class="nav-icon">⬇️</span>
+            <span class="nav-label">Esporta Excel</span>
+          </button>
+          <button class="drawer-action-btn" onclick="document.getElementById('importInput').click()">
+            <span class="nav-icon">⬆️</span>
+            <span class="nav-label">Importa Excel</span>
+          </button>
+          <input id="importInput" type="file" accept=".xlsx" style="display:none" onchange="importExcel(this.files[0]);this.value=''"/>
+          ` : ''}
+        </div>
+
+        <div class="drawer-footer">
+          <div class="user-tile" onclick="doLogout()">
+            <div class="user-avatar">
+              ${CURRENT_USER?.photoURL
+                ? `<img src="${CURRENT_USER.photoURL}" onerror="this.style.display='none'"/>`
+                : (CURRENT_USER?.displayName||CURRENT_USER?.email||'?')[0].toUpperCase()}
+            </div>
+            <div class="user-info" style="flex:1;min-width:0">
+              <div class="user-name">${(CURRENT_USER?.displayName||CURRENT_USER?.email||'').split(' ')[0]}</div>
+              <div class="user-role">Esci dall'account</div>
+            </div>
+            <span style="color:var(--on-sur-var);font-size:16px;flex-shrink:0">⎋</span>
+          </div>
+        </div>
+      </nav>
+
+      <!-- MAIN -->
+      <div id="shell-main">
+        <!-- TOP APP BAR -->
+        <header id="topbar">
+          <button class="topbar-icon-btn" onclick="toggleDrawer()" title="Menu">☰</button>
+          <div id="topbar-title">Dashboard</div>
+          <div id="topbar-actions">
+            <div id="saving-indicator">
+              <div class="spinner" style="width:14px;height:14px"></div> Salvataggio
+            </div>
+            ${CURRENT_FLEET_ROLE === 'viewer'
+              ? '<span class="viewer-badge">👁 Sola lettura</span>'
+              : ''}
+          </div>
+        </header>
+
+        <!-- PAGE CONTENT -->
+        <div id="main-content"></div>
       </div>
-    </div>
-    <div id="nav" style="display:flex;gap:4px">
-      <button class="tab ${VIEW==='dashboard'?'active':''}" onclick="navigate('dashboard')">📊 Dashboard</button>
-      <button class="tab ${VIEW==='flotta'?'active':''}" onclick="navigate('flotta')">🚐 Flotta</button>
-      <button class="tab ${VIEW==='scadenze'?'active':''}" onclick="navigate('scadenze')">📅 Scadenze</button>
-    </div>
-    <div id="header-actions">
-      ${CURRENT_FLEET_ROLE==="viewer"?'<span style="color:#ffd166;font-size:10px;font-weight:700;background:#ffd16622;padding:2px 7px;border-radius:4px;border:1px solid #ffd16644">👁 SOLA LETTURA</span>':''}
-      ${SAVING ? '<span style="color:#06d6a0;font-size:11px">💾 Salvataggio...</span>' : ''}
-      ${CURRENT_FLEET_ROLE!=="viewer"?`
-        <button class="btn btn-green" onclick="exportExcel()" title="Esporta">⬇️</button>
-        <button class="btn btn-yellow" onclick="document.getElementById('importInput').click()" title="Importa">⬆️</button>
-        <input id="importInput" type="file" accept=".xlsx" style="display:none" onchange="importExcel(this.files[0]);this.value=''"/>
-      `:''}
-      <button class="btn" onclick="openFleetManager()" title="Gestisci flotte" style="padding:4px 10px;font-size:14px">🏢</button>
-      <div id="user-chip">
-        ${CURRENT_USER?.photoURL?`<img src="${CURRENT_USER.photoURL}" onerror="this.style.display='none'"/>`:'' }
-        <span class="uname" title="${CURRENT_USER?.email||''}">${(CURRENT_USER?.displayName||CURRENT_USER?.email||'').split(' ')[0]}</span>
-        <button class="btn" onclick="doLogout()" style="padding:4px 8px;font-size:11px">⎋ Esci</button>
-      </div>
-    </div>
-  </div>`;
-  if (existing) existing.outerHTML = html;
-  else document.getElementById("app").insertAdjacentHTML("afterbegin", html);
+    </div>`;
+}
+
+/* ── Update drawer active state & fleet label ─────────────────── */
+function updateDrawer() {
+  const fleetLabel = document.getElementById('drawer-fleet-label');
+  if (fleetLabel) {
+    fleetLabel.textContent = CURRENT_FLEET_ID === 'personal'
+      ? 'Flotta personale'
+      : (MY_FLEETS[CURRENT_FLEET_ID]?.name || '');
+  }
+  ['dashboard','flotta','scadenze'].forEach(v => {
+    const el = document.getElementById('nav-' + v);
+    if (el) el.classList.toggle('active', VIEW === v);
+  });
+}
+
+/* ── Update topbar title + saving indicator ───────────────────── */
+function updateTopbar() {
+  const titleMap = {
+    dashboard: 'Dashboard',
+    flotta: SELECTED_VEHICLE
+      ? (SELECTED_VEHICLE.targa || 'Veicolo')
+      : 'Flotta',
+    scadenze: 'Scadenze'
+  };
+  const el = document.getElementById('topbar-title');
+  if (el) el.textContent = titleMap[VIEW] || '';
+  const sav = document.getElementById('saving-indicator');
+  if (sav) sav.classList.toggle('visible', !!SAVING);
+  // also update viewer badge in topbar
+  const vb = document.getElementById('viewer-badge-topbar');
+  // (handled in shell build)
+}
+
+/* ── Drawer open/close ────────────────────────────────────────── */
+function openDrawer() {
+  document.getElementById('nav-drawer')?.classList.add('open');
+  document.getElementById('nav-scrim')?.classList.add('visible');
+  document.getElementById('shell-main')?.classList.add('drawer-expanded');
+  document.getElementById('nav-drawer')?.classList.add('expanded');
+}
+function closeDrawer() {
+  const d = document.getElementById('nav-drawer');
+  const s = document.getElementById('nav-scrim');
+  const m = document.getElementById('shell-main');
+  if (window.innerWidth >= 1024) {
+    d?.classList.remove('expanded');
+    m?.classList.remove('drawer-expanded');
+  } else {
+    d?.classList.remove('open');
+    s?.classList.remove('visible');
+  }
+}
+function toggleDrawer() {
+  const d = document.getElementById('nav-drawer');
+  if (!d) return;
+  if (window.innerWidth >= 1024) {
+    d.classList.toggle('expanded');
+    document.getElementById('shell-main')?.classList.toggle('drawer-expanded');
+  } else {
+    if (d.classList.contains('open')) closeDrawer();
+    else openDrawer();
+  }
 }
 
 function renderContent() {
-  let html = "";
-  if (VIEW === "dashboard") html = renderDashboard();
-  else if (VIEW === "flotta" && !SELECTED_VEHICLE) html = renderFlotta();
-  else if (VIEW === "flotta" && SELECTED_VEHICLE) html = renderVehicleDetail();
-  else if (VIEW === "scadenze") html = renderAllScadenze();
+  let html = '';
+  if (VIEW === 'dashboard')                            html = renderDashboard();
+  else if (VIEW === 'flotta' && !SELECTED_VEHICLE)     html = renderFlotta();
+  else if (VIEW === 'flotta' && SELECTED_VEHICLE)      html = renderVehicleDetail();
+  else if (VIEW === 'scadenze')                        html = renderAllScadenze();
 
-  const cont = document.getElementById("main-content");
+  const cont = document.getElementById('main-content');
   if (cont) cont.innerHTML = html;
-  else {
-    const div = document.createElement("div");
-    div.id = "main-content"; div.id = "main-content";
-    div.innerHTML = html;
-    document.getElementById("app").appendChild(div);
-  }
-  // wrap in #content if not already
-  const mc = document.getElementById("main-content");
-  if (mc && !mc.style.padding) { mc.style.maxWidth="900px"; mc.style.margin="0 auto"; mc.style.padding="20px"; }
+  updateTopbar();
+  updateDrawer();
+  // close mobile drawer on navigation
+  if (window.innerWidth < 1024) closeDrawer();
 }
 
-// ───────────────────── DASHBOARD ─────────────────────────────────────────
+
 function renderDashboard() {
-  const { scadenze, vehicles, manutenzioni, kmLog } = DATA;
-  const alerts = scadenze.map(s=>({...s,days:daysUntil(s.scadenza)})).filter(s=>s.days<=30).sort((a,b)=>a.days-b.days);
-  const scad   = alerts.filter(a=>a.days<0).length;
-  const urg    = alerts.filter(a=>a.days>=0&&a.days<=14).length;
-  const ins    = alerts.filter(a=>a.days>14&&a.days<=30).length;
+  const today = new Date();
+  const scad30  = DATA.scadenze.filter(s => !s.done && daysUntil(s.scadenza) <= 30);
+  const scad90  = DATA.scadenze.filter(s => !s.done && daysUntil(s.scadenza) <= 90);
+  const scadScad= DATA.scadenze.filter(s => !s.done && daysUntil(s.scadenza) < 0);
+  const totalKm = DATA.vehicles.reduce((a,v) => a + (v.km||0), 0);
 
-  const stats = [
-    {l:"Scadute",       v:scad,              c:"#ff3b3b"},
-    {l:"Urgenti (≤14gg)",v:urg,             c:"#ff6b35"},
-    {l:"In scadenza (≤30gg)",v:ins,         c:"#ffd166"},
-    {l:"Furgoni attivi",v:vehicles.length,  c:"#3d7eff"},
-    {l:"Manutenzioni",  v:manutenzioni.length,c:"#06d6a0"},
-    {l:"Aggiornam. km", v:kmLog.length,     c:"#a78bfa"},
-  ];
+  const statCards = [
+    { icon:'🚐', value: DATA.vehicles.length, label:'Veicoli', color:'var(--pri)' },
+    { icon:'⚠️', value: scad30.length,  label:'Scadenze entro 30gg', color:'var(--warn)' },
+    { icon:'🔴', value: scadScad.length, label:'Scadute',  color:'var(--err)' },
+    { icon:'📍', value: totalKm.toLocaleString('it-IT'), label:'Km totali', color:'var(--suc)' },
+  ].map(s => `
+    <div class="stat-card">
+      <div class="stat-icon">${s.icon}</div>
+      <div class="stat-value" style="color:${s.color}">${s.value}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>`).join('');
 
-  let rows = "";
-  if (alerts.length === 0) {
-    rows = `<div style="color:#8b95a8;text-align:center;padding:32px">✅ Nessuna scadenza nei prossimi 30 giorni</div>`;
-  } else {
-    alerts.forEach(a => {
-      const v = vehicles.find(x=>x.id===a.vehicleId)||{};
-      const c = urgColor(a.days);
-      rows += `<div style="background:#1a1d26;border-radius:8px;padding:12px 16px;margin-bottom:8px;
-                border:1px solid ${c}33;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+  // Urgency list
+  const urgList = DATA.scadenze
+    .filter(s => !s.done && daysUntil(s.scadenza) <= 30)
+    .sort((a,b) => daysUntil(a.scadenza) - daysUntil(b.scadenza))
+    .slice(0,8)
+    .map(s => {
+      const v = DATA.vehicles.find(x => x.id === s.vehicleId);
+      const d = daysUntil(s.scadenza);
+      const b = badge(d);
+      return `<div class="row row-flex" style="cursor:pointer" onclick="selectVehicle(${s.vehicleId})">
         <div>
-          <span style="color:#e8eaf0;font-weight:600">${esc(a.tipo)}</span>
-          <span style="color:#8b95a8;font-size:13px;margin-left:8px">${esc(v.targa||"")} — ${esc(v.modello||"")}</span>
+          <div style="font-weight:600;color:var(--on-sur);font-size:13px">${esc(s.tipo)}</div>
+          <div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${v ? esc(v.targa)+' · '+esc(v.modello) : ''}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="color:#8b95a8;font-size:12px">${fmtDate(a.scadenza)}</span>
-          ${badge(a.days)}
-        </div>
+        <div style="display:flex;align-items:center;gap:8px">${b}</div>
       </div>`;
-    });
-  }
+    }).join('') || `<div style="color:var(--on-sur-var);text-align:center;padding:24px;font-size:13px">✅ Nessuna scadenza urgente</div>`;
 
   return `
-    <div class="stat-grid">${stats.map(s=>`
-      <div class="stat-card" style="border:1px solid ${s.c}33">
-        <div style="font-size:28px;font-weight:800;color:${s.c}">${s.v}</div>
-        <div style="font-size:11px;color:#8b95a8;margin-top:2px">${s.l}</div>
-      </div>`).join("")}
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-subtitle">Panoramica flotta · ${DATA.vehicles.length} veicoli</div>
+      </div>
     </div>
-    <h3 style="color:#e8eaf0;font-size:14px;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px">⚠️ Scadenze imminenti</h3>
-    ${rows}`;
+    <div class="stat-grid">${statCards}</div>
+    <div style="margin-bottom:12px;font-size:13px;font-weight:600;color:var(--on-sur-var);letter-spacing:.5px;text-transform:uppercase">⚠️ Prossime scadenze</div>
+    ${urgList}`;
 }
 
-// ───────────────────── FLOTTA ────────────────────────────────────────────
+
 function renderFlotta() {
   const cards = DATA.vehicles.map(v => {
-    const sv = DATA.scadenze.filter(s=>s.vehicleId===v.id);
-    const minD = sv.length>0 ? Math.min(...sv.map(s=>daysUntil(s.scadenza))) : 9999;
-    const c = urgColor(minD);
-    const badges = sv.slice(0,3).map(s=>badge(daysUntil(s.scadenza))).join(" ");
-    return `<div class="card v-card" onclick="selectVehicle(${v.id})"
-              style="border-color:${minD<=30?c+'55':'#2e3347'}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    const sv   = DATA.scadenze.filter(s => s.vehicleId === v.id && !s.done);
+    const minD = sv.length > 0 ? Math.min(...sv.map(s => daysUntil(s.scadenza))) : 9999;
+    const urgent = minD <= 7;
+    const badges = sv
+      .sort((a,b) => daysUntil(a.scadenza)-daysUntil(b.scadenza))
+      .slice(0,3).map(s => badge(daysUntil(s.scadenza))).join(' ');
+    return `<div class="v-card${urgent?' urgent':''}" onclick="selectVehicle(${v.id})">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
         <div>
-          <div style="font-size:18px;font-weight:800;color:#e8eaf0;letter-spacing:1px">${esc(v.targa)}</div>
-          <div style="color:#8b95a8;font-size:13px;margin-top:2px">${esc(v.modello)} · ${v.anno}</div>
+          <div class="v-targa">${esc(v.targa)}</div>
+          <div class="v-modello">${esc(v.modello)} · ${v.anno}</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:18px;font-weight:700;color:#3d7eff">${v.km.toLocaleString("it-IT")}</div>
-          <div style="color:#8b95a8;font-size:11px">km</div>
+          <div class="v-km">${v.km.toLocaleString('it-IT')}</div>
+          <div class="v-km-label">km</div>
         </div>
       </div>
-      <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-        ${badges || '<span style="color:#8b95a8;font-size:12px">Nessuna scadenza</span>'}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${badges || '<span style="color:var(--on-sur-var);font-size:12px">Nessuna scadenza</span>'}
       </div>
     </div>`;
-  }).join("");
-  const addBtn = CURRENT_FLEET_ROLE !== "viewer"
-    ? `<button class="btn btn-green" onclick="openAddVehicleModal()" style="padding:5px 14px">+ Aggiungi</button>`
-    : "";
-  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h2 style="color:#e8eaf0;font-size:16px;letter-spacing:1px;margin:0">🚐 I TUOI FURGONI</h2>
-    ${addBtn}
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">${cards || '<div style="color:#8b95a8;text-align:center;padding:40px;grid-column:1/-1">Nessun veicolo. Clicca + Aggiungi per iniziare.</div>'}</div>`;
+  }).join('');
+
+  const emptyState = `<div style="text-align:center;padding:60px 20px;color:var(--on-sur-var)">
+    <div style="font-size:48px;margin-bottom:16px">🚐</div>
+    <div style="font-size:16px;font-weight:600;color:var(--on-sur);margin-bottom:8px">Nessun veicolo</div>
+    <div style="font-size:13px">Clicca + per aggiungere il primo veicolo</div>
+  </div>`;
+
+  const fabHtml = CURRENT_FLEET_ROLE !== 'viewer'
+    ? `<button class="fab fab-extended" onclick="openAddVehicleModal()">
+        <span class="fab-icon">+</span> Aggiungi veicolo
+       </button>` : '';
+
+  return `
+    <div class="page-header">
+      <div>
+        <div class="page-title">Flotta</div>
+        <div class="page-subtitle">${DATA.vehicles.length} veicoli registrati</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+      ${cards || emptyState}
+    </div>
+    ${fabHtml}`;
 }
+
 
 // ───────────────────── VEHICLE DETAIL ────────────────────────────────────
 function renderVehicleDetail() {
-  const v = DATA.vehicles.find(x=>x.id===SELECTED_VEHICLE.id) || SELECTED_VEHICLE;
-  const tabs = ["scadenze","manutenzioni","km","gomme","checklist","note"];
-  const tabLabels = {scadenze:"📅 Scadenze",manutenzioni:"🔧 Manutenzioni",km:"📍 Registro km",gomme:"🔄 Gomme",checklist:"✅ Check-list",note:"📝 Note"};
+  const v = DATA.vehicles.find(x => x.id === SELECTED_VEHICLE.id) || SELECTED_VEHICLE;
+  const tabs = ['scadenze','manutenzioni','km','gomme','checklist','note'];
+  const tabLabels = {
+    scadenze:'📅 Scadenze', manutenzioni:'🔧 Manutenzioni',
+    km:'📍 Km', gomme:'🔄 Gomme', checklist:'✅ Checklist', note:'📝 Note'
+  };
+
 
   let tabContent = "";
   if (VEHICLE_TAB==="scadenze")     tabContent = renderScadenzeTab(v);
@@ -529,29 +996,23 @@ function renderVehicleDetail() {
   if (VEHICLE_TAB==="note")         tabContent = renderNoteTab(v);
 
   return `
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
-      <button class="btn btn-ghost" onclick="backToFlotta()">← Flotta</button>
-      <div style="display:flex;align-items:center;gap:8px;flex:1">
-        <span style="color:#e8eaf0;font-weight:800;font-size:18px">${esc(v.targa)}</span>
-        <span style="color:#8b95a8;font-size:13px">${esc(v.modello)} · ${v.anno}</span>
-        <button onclick="openModal('editVehicle',${v.id})" title="Modifica furgone"
-          style="background:none;border:1px solid #2e3347;border-radius:6px;color:#8b95a8;cursor:pointer;padding:3px 8px;font-size:13px"
-          onmouseover="this.style.borderColor='#3d7eff';this.style.color='#3d7eff'"
-          onmouseout="this.style.borderColor='#2e3347';this.style.color='#8b95a8'">✏️</button>
-        ${CURRENT_FLEET_ROLE !== "viewer" ? `
-        <button onclick="openMigrateVehicleModal(${v.id})" title="Migra in altra flotta"
-          style="background:none;border:1px solid #2e3347;border-radius:6px;color:#8b95a8;cursor:pointer;padding:3px 8px;font-size:13px"
-          onmouseover="this.style.borderColor='#ffd166';this.style.color='#ffd166'"
-          onmouseout="this.style.borderColor='#2e3347';this.style.color='#8b95a8'">🔀</button>
-        <button onclick="confirmRemoveVehicle(${v.id})" title="Rimuovi veicolo"
-          style="background:none;border:1px solid #2e3347;border-radius:6px;color:#8b95a8;cursor:pointer;padding:3px 8px;font-size:13px"
-          onmouseover="this.style.borderColor='#ff3b3b';this.style.color='#ff3b3b'"
-          onmouseout="this.style.borderColor='#2e3347';this.style.color='#8b95a8'">🗑️</button>
-        ` : ""}
-      </div>
-      <div style="color:#3d7eff;font-weight:700;flex-shrink:0">${v.km.toLocaleString("it-IT")} km</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <button class="btn btn-ghost" onclick="backToFlotta()" style="padding:6px 14px;font-size:13px">← Flotta</button>
     </div>
-    <div class="tabs">${tabs.map(t=>`<button class="tab ${VEHICLE_TAB===t?'active':''}" onclick="setVehicleTab('${t}')">${tabLabels[t]}</button>`).join("")}</div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:22px;font-weight:700;color:var(--on-sur);letter-spacing:2px;font-family:'DM Mono',monospace">${esc(v.targa)}</div>
+        <div style="font-size:14px;color:var(--on-sur-var);margin-top:4px">${esc(v.modello)} · ${v.anno} · ${v.km.toLocaleString('it-IT')} km</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="openModal('editVehicle',${v.id})" style="padding:6px 14px;font-size:13px">✏️ Modifica</button>
+        ${CURRENT_FLEET_ROLE !== 'viewer' ? `
+        <button class="btn btn-ghost" onclick="openMigrateVehicleModal(${v.id})" style="padding:6px 14px;font-size:13px">🔀 Migra</button>
+        <button class="btn btn-danger" onclick="confirmRemoveVehicle(${v.id})" style="padding:6px 14px;font-size:13px">🗑️</button>
+        ` : ''}
+      </div>
+    </div>
+    <div class="tabs">${tabs.map(t=>`<button class="tab ${VEHICLE_TAB===t?'active':''}" onclick="setVehicleTab('${t}')">${tabLabels[t]}</button>`).join('')}</div>
     ${tabContent}`;
 }
 
@@ -565,17 +1026,17 @@ function renderScadenzeTab(v) {
     return `<div class="row row-flex">
       <div style="display:flex;align-items:center;gap:10px;flex:1">
         <input type="checkbox" title="Segna come completata"
-          style="width:17px;height:17px;accent-color:#06d6a0;cursor:pointer;flex-shrink:0"
+          style="width:17px;height:17px;accent-color:var(--suc);cursor:pointer;flex-shrink:0"
           onchange="completaScadenza(${s.id},${v.id},this.checked)"/>
         <div>
-          <span style="color:#e8eaf0;font-weight:600">${esc(s.tipo)}</span>
-          ${s.note?`<div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(s.note)}</div>`:""}
+          <span style="color:var(--on-sur);font-weight:600">${esc(s.tipo)}</span>
+          ${s.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(s.note)}</div>`:""}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span style="color:#8b95a8;font-size:12px">${fmtDate(s.scadenza)}</span>
+        <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(s.scadenza)}</span>
         ${badge(days)}
-        <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:#ff3b3b55;cursor:pointer;font-size:16px" title="Elimina">×</button>
+        <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:var(--err)55;cursor:pointer;font-size:16px" title="Elimina">×</button>
       </div>
     </div>`;
   };
@@ -584,29 +1045,29 @@ function renderScadenzeTab(v) {
     <div class="row row-flex" style="opacity:0.55">
       <div style="display:flex;align-items:center;gap:10px;flex:1">
         <input type="checkbox" checked title="Annulla completamento"
-          style="width:17px;height:17px;accent-color:#06d6a0;cursor:pointer;flex-shrink:0"
+          style="width:17px;height:17px;accent-color:var(--suc);cursor:pointer;flex-shrink:0"
           onchange="completaScadenza(${s.id},${v.id},this.checked)"/>
         <div>
-          <span style="color:#8b95a8;font-weight:600;text-decoration:line-through">${esc(s.tipo)}</span>
-          ${s.dataCompletata?`<div style="color:#06d6a0;font-size:11px;margin-top:1px">✓ fatto il ${fmtDate(s.dataCompletata)}</div>`:""}
+          <span style="color:var(--on-sur-var);font-weight:600;text-decoration:line-through">${esc(s.tipo)}</span>
+          ${s.dataCompletata?`<div style="color:var(--suc);font-size:11px;margin-top:1px">✓ fatto il ${fmtDate(s.dataCompletata)}</div>`:""}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span style="color:#8b95a8;font-size:12px">${fmtDate(s.scadenza)}</span>
-        <span class="badge" style="background:#06d6a022;color:#06d6a0;border:1px solid #06d6a044">FATTO</span>
-        <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:#ff3b3b55;cursor:pointer;font-size:16px" title="Elimina dallo storico">×</button>
+        <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(s.scadenza)}</span>
+        <span class="badge" style="background:var(--suc)22;color:var(--suc);border:1px solid var(--suc)44">FATTO</span>
+        <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:var(--err)55;cursor:pointer;font-size:16px" title="Elimina dallo storico">×</button>
       </div>
     </div>`;
 
-  const righeAttive  = attive.map(rowAttiva).join("") || `<div style="color:#8b95a8;text-align:center;padding:16px;font-size:13px">Nessuna scadenza attiva</div>`;
+  const righeAttive  = attive.map(rowAttiva).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:16px;font-size:13px">Nessuna scadenza attiva</div>`;
   const righeStorico = storico.length ? `
     <div style="margin-top:20px">
-      <div style="color:#8b95a8;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;padding:0 4px">📋 STORICO COMPLETATE</div>
+      <div style="color:var(--on-sur-var);font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;padding:0 4px">📋 STORICO COMPLETATE</div>
       ${storico.map(rowStorico).join("")}
     </div>` : "";
 
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
-    <span style="color:#8b95a8;font-size:13px">${attive.length} attive · ${storico.length} completate</span>
+    <span style="color:var(--on-sur-var);font-size:13px">${attive.length} attive · ${storico.length} completate</span>
     <button class="btn" onclick="openModal('addScadenza',${v.id})">+ Aggiungi</button></div>
     ${righeAttive}${righeStorico}`;
 }
@@ -617,19 +1078,19 @@ function renderManutenzioniTab(v) {
     <div class="row">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
         <div>
-          <span style="color:#e8eaf0;font-weight:600">${esc(m.descrizione)}</span>
-          <span style="color:#8b95a8;font-size:12px;background:#2e3347;border-radius:4px;padding:1px 6px;margin-left:6px">${esc(m.tipo)}</span>
+          <span style="color:var(--on-sur);font-weight:600">${esc(m.descrizione)}</span>
+          <span style="color:var(--on-sur-var);font-size:12px;background:var(--out-var);border-radius:4px;padding:1px 6px;margin-left:6px">${esc(m.tipo)}</span>
         </div>
         <div style="text-align:right">
-          <div style="color:#ffd166;font-weight:700">${m.costo?`€ ${m.costo}`:"—"}</div>
-          <div style="color:#8b95a8;font-size:11px">${fmtDate(m.data)}</div>
+          <div style="color:var(--warn);font-weight:700">${m.costo?`€ ${m.costo}`:"—"}</div>
+          <div style="color:var(--on-sur-var);font-size:11px">${fmtDate(m.data)}</div>
         </div>
       </div>
-      <div style="color:#8b95a8;font-size:12px;margin-top:4px">km: ${Number(m.km).toLocaleString("it-IT")}</div>
-      ${m.note?`<div style="color:#8b95a8;font-size:12px;margin-top:4px;font-style:italic;border-top:1px solid #2e3347;padding-top:4px">${esc(m.note)}</div>`:""}
-    </div>`).join("") || `<div style="color:#8b95a8;text-align:center;padding:24px">Nessuna manutenzione registrata</div>`;
+      <div style="color:var(--on-sur-var);font-size:12px;margin-top:4px">km: ${Number(m.km).toLocaleString("it-IT")}</div>
+      ${m.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:4px;font-style:italic;border-top:1px solid var(--out-var);padding-top:4px">${esc(m.note)}</div>`:""}
+    </div>`).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:24px">Nessuna manutenzione registrata</div>`;
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
-    <span style="color:#8b95a8;font-size:13px">${items.length} interventi</span>
+    <span style="color:var(--on-sur-var);font-size:13px">${items.length} interventi</span>
     <button class="btn" onclick="openModal('addManutenzione',${v.id})">+ Aggiungi</button></div>${rows}`;
 }
 
@@ -673,9 +1134,9 @@ function buildKmGrafico(items) {
       ? keys[0].slice(5) + "/" + keys[0].slice(2,4)
       : keys[0];
     bars = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
-      <span style="color:#8b95a8;font-size:9px;font-weight:600">${Number(groups[keys[0]]).toLocaleString("it-IT")}</span>
-      <div style="width:40px;height:110px;background:#3d7eff;border-radius:4px 4px 0 0;min-height:3px"></div>
-      <span style="color:#8b95a8;font-size:9px;white-space:nowrap">${label}</span>
+      <span style="color:var(--on-sur-var);font-size:9px;font-weight:600">${Number(groups[keys[0]]).toLocaleString("it-IT")}</span>
+      <div style="width:40px;height:110px;background:var(--pri);border-radius:4px 4px 0 0;min-height:3px"></div>
+      <span style="color:var(--on-sur-var);font-size:9px;white-space:nowrap">${label}</span>
     </div>`;
   } else {
     const deltas = keys.map((k,i) => {
@@ -689,31 +1150,31 @@ function buildKmGrafico(items) {
     bars = deltas.map(d => {
       const h = Math.max(3, Math.round((d.val / maxVal) * 110));
       const isMax = d.val === maxVal;
-      const color = isMax ? "#3d7eff" : "#3d7eff66";
+      const color = isMax ? "var(--pri)" : "var(--pri)66";
       const label = KM_CHART_MODE === "mese"
         ? d.label.slice(5) + "/" + d.label.slice(2,4)
         : d.label;
       return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
-        <span style="color:${isMax?'#e8eaf0':'#8b95a8'};font-size:9px;font-weight:${isMax?700:400}">${Number(d.val).toLocaleString("it-IT")}</span>
+        <span style="color:${isMax?'var(--on-sur)':'var(--on-sur-var)'};font-size:9px;font-weight:${isMax?700:400}">${Number(d.val).toLocaleString("it-IT")}</span>
         <div style="width:${barWidth}px;height:${h}px;background:${color};border-radius:4px 4px 0 0;"
              title="${label}: ${Number(d.val).toLocaleString("it-IT")} km"></div>
-        <span style="color:#8b95a8;font-size:9px;white-space:nowrap">${label}</span>
+        <span style="color:var(--on-sur-var);font-size:9px;white-space:nowrap">${label}</span>
       </div>`;
     }).join("");
   }
 
-  return `<div id="km-chart-container" style="background:#1a1d26;border:1px solid #2e3347;border-radius:10px;padding:16px;margin-bottom:16px">
+  return `<div id="km-chart-container" style="background:var(--s2);border:1px solid var(--out-var);border-radius:10px;padding:16px;margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <span style="color:#e8eaf0;font-size:13px;font-weight:700">📈 KM PERCORSI</span>
+      <span style="color:var(--on-sur);font-size:13px;font-weight:700">📈 KM PERCORSI</span>
       <div style="display:flex;gap:4px">
         <button onclick="setKmChartMode('mese')"
-          style="font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;border:1px solid #3d7eff;
-                 background:${KM_CHART_MODE==='mese'?'#3d7eff':'transparent'};
-                 color:${KM_CHART_MODE==='mese'?'#fff':'#3d7eff'}">Per mese</button>
+          style="font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;border:1px solid var(--pri);
+                 background:${KM_CHART_MODE==='mese'?'var(--pri)':'transparent'};
+                 color:${KM_CHART_MODE==='mese'?'#fff':'var(--pri)'}">Per mese</button>
         <button onclick="setKmChartMode('anno')"
-          style="font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;border:1px solid #3d7eff;
-                 background:${KM_CHART_MODE==='anno'?'#3d7eff':'transparent'};
-                 color:${KM_CHART_MODE==='anno'?'#fff':'#3d7eff'}">Per anno</button>
+          style="font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;border:1px solid var(--pri);
+                 background:${KM_CHART_MODE==='anno'?'var(--pri)':'transparent'};
+                 color:${KM_CHART_MODE==='anno'?'#fff':'var(--pri)'}">Per anno</button>
       </div>
     </div>
     <div style="overflow-x:auto">
@@ -734,14 +1195,14 @@ function renderKmTab(v) {
   const rows = items.map(k=>`
     <div class="row row-flex">
       <div>
-        <span style="color:#3d7eff;font-weight:700;font-size:16px">${Number(k.km).toLocaleString("it-IT")} km</span>
-        ${k.note?`<div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(k.note)}</div>`:""}
+        <span style="color:var(--pri);font-weight:700;font-size:16px">${Number(k.km).toLocaleString("it-IT")} km</span>
+        ${k.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(k.note)}</div>`:""}
       </div>
-      <span style="color:#8b95a8;font-size:12px">${fmtDate(k.data)}</span>
-    </div>`).join("") || `<div style="color:#8b95a8;text-align:center;padding:24px">Nessun aggiornamento km</div>`;
+      <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(k.data)}</span>
+    </div>`).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:24px">Nessun aggiornamento km</div>`;
 
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
-    <span style="color:#8b95a8;font-size:13px">${items.length} aggiornamenti</span>
+    <span style="color:var(--on-sur-var);font-size:13px">${items.length} aggiornamenti</span>
     <button class="btn" onclick="openModal('addKm',${v.id})">+ Aggiorna km</button></div>
     ${grafico}${rows}`;
 }
@@ -751,14 +1212,14 @@ function renderGommeTab(v) {
   const rows = items.map(g=>`
     <div class="row row-flex">
       <div>
-        <span style="color:#e8eaf0;font-weight:600">${esc(g.tipo)}</span>
-        ${g.marca?`<span style="color:#8b95a8;font-size:12px;margin-left:8px">${esc(g.marca)}</span>`:""}
-        ${g.note?`<div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(g.note)}</div>`:""}
+        <span style="color:var(--on-sur);font-weight:600">${esc(g.tipo)}</span>
+        ${g.marca?`<span style="color:var(--on-sur-var);font-size:12px;margin-left:8px">${esc(g.marca)}</span>`:""}
+        ${g.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(g.note)}</div>`:""}
       </div>
-      <span style="color:#8b95a8;font-size:12px">${fmtDate(g.data)}</span>
-    </div>`).join("") || `<div style="color:#8b95a8;text-align:center;padding:24px">Nessun cambio gomme registrato</div>`;
+      <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(g.data)}</span>
+    </div>`).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:24px">Nessun cambio gomme registrato</div>`;
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
-    <span style="color:#8b95a8;font-size:13px">${items.length} cambi</span>
+    <span style="color:var(--on-sur-var);font-size:13px">${items.length} cambi</span>
     <button class="btn" onclick="openModal('addGomma',${v.id})">+ Aggiungi</button></div>${rows}`;
 }
 
@@ -803,7 +1264,7 @@ function renderChecklistTab(v) {
         <label style="flex:1">${esc(voce)}</label>
       </div>
       ${isChecked ? `<input type="date" value="${dataVal}"
-        style="background:#0f1117;border:1px solid #2e3347;border-radius:5px;padding:3px 8px;color:#8b95a8;font-size:11px;width:100%;outline:none"
+        style="background:var(--s0);border:1px solid var(--out-var);border-radius:5px;padding:3px 8px;color:var(--on-sur-var);font-size:11px;width:100%;outline:none"
         onclick="event.stopPropagation()"
         onchange="setChecklistDate(${v.id},${i},this.value)"/>` : ""}
     </div>`;
@@ -811,13 +1272,13 @@ function renderChecklistTab(v) {
 
   const done = Object.keys(checkedMap).length;
   const pct = Math.round(done / CHECKLIST_VOCI.length * 100);
-  const barColor = pct === 100 ? "#06d6a0" : pct >= 50 ? "#ffd166" : "#3d7eff";
+  const barColor = pct === 100 ? "var(--suc)" : pct >= 50 ? "var(--warn)" : "var(--pri)";
 
   return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <span style="color:#8b95a8;font-size:13px">${done} / ${CHECKLIST_VOCI.length} completate</span>
+      <span style="color:var(--on-sur-var);font-size:13px">${done} / ${CHECKLIST_VOCI.length} completate</span>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <div style="width:100px;height:6px;background:#2e3347;border-radius:3px;overflow:hidden">
+        <div style="width:100px;height:6px;background:var(--out-var);border-radius:3px;overflow:hidden">
           <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px;transition:width .3s"></div>
         </div>
         <span style="color:${barColor};font-size:12px;font-weight:700">${pct}%</span>
@@ -887,15 +1348,15 @@ function resetChecklist(vehicleId) {
 function renderNoteTab(v) {
   return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <span style="color:#8b95a8;font-size:13px">Note libere per questo furgone</span>
+      <span style="color:var(--on-sur-var);font-size:13px">Note libere per questo furgone</span>
       <div style="display:flex;align-items:center;gap:8px">
-        <span id="note-status" style="color:#8b95a8;font-size:11px"></span>
+        <span id="note-status" style="color:var(--on-sur-var);font-size:11px"></span>
         <button class="btn" onclick="saveNote(${v.id})">💾 Salva</button>
       </div>
     </div>
     <textarea id="noteArea" rows="14"
-      style="width:100%;background:#0f1117;border:1px solid #2e3347;border-radius:8px;padding:16px;
-             color:#e8eaf0;font-size:14px;line-height:1.6;resize:vertical;outline:none;font-family:inherit"
+      style="width:100%;background:var(--s0);border:1px solid var(--out-var);border-radius:8px;padding:16px;
+             color:var(--on-sur);font-size:14px;line-height:1.6;resize:vertical;outline:none;font-family:inherit"
       placeholder="Scrivi qui note, promemoria, informazioni utili..."
       oninput="noteUnsaved(${v.id})"
     >${esc(v.note||"")}</textarea>`;
@@ -908,7 +1369,426 @@ function noteUnsaved(vehicleId) {
   if (!el) return;
   const v = DATA.vehicles.find(x => x.id === vehicleId);
   if (v) v.note = el.value;
-  if (st) { st.textContent = "● non salvato"; st.style.color = "#ffd166"; }
+  if (st) { st.textContent = "● non salvato"; st.style.color = "var(--warn)"; }
+}
+
+// ───────────────────── ALL SCADENZE ──────────────────────────────────────
+function renderAllScadenze() {
+  const active = DATA.scadenze
+    .filter(s => !s.done)
+    .sort((a,b) => daysUntil(a.scadenza)-daysUntil(b.scadenza));
+  const done = DATA.scadenze
+    .filter(s => s.done)
+    .sort((a,b) => new Date(b.dataCompletata||0)-new Date(a.dataCompletata||0));
+
+  const urgClass = d => d < 0 ? 'red' : d <= 7 ? 'red' : d <= 30 ? 'orange' : 'green';
+
+  const rows = active.map(s => {
+    const v = DATA.vehicles.find(x => x.id === s.vehicleId);
+    const d = daysUntil(s.scadenza);
+    return `<div class="row scad-row ${urgClass(d)}" style="margin-bottom:8px">
+      <div class="row-flex">
+        <div>
+          <span style="font-weight:600;color:var(--on-sur);font-size:14px">${esc(s.tipo)}</span>
+          <span style="margin-left:8px;font-size:12px;color:var(--on-sur-var)">${v ? esc(v.targa) : ''}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${badge(d)}
+          <input type="checkbox" style="accent-color:var(--suc);width:16px;height:16px;cursor:pointer"
+            ${s.done?'checked':''} onchange="completaScadenza(${s.id},${s.vehicleId},this.checked)"/>
+        </div>
+      </div>
+      ${s.scadenza?`<div style="font-size:12px;color:var(--on-sur-var);margin-top:4px">📅 ${s.scadenza}</div>`:''}
+      ${s.note?`<div style="font-size:12px;color:var(--on-sur-var);margin-top:2px">📝 ${esc(s.note)}</div>`:''}
+    </div>`;
+  }).join('') || `<div style="color:var(--on-sur-var);text-align:center;padding:32px;font-size:13px">✅ Nessuna scadenza attiva</div>`;
+
+  const doneRows = done.slice(0,20).map(s => {
+    const v = DATA.vehicles.find(x => x.id === s.vehicleId);
+    return `<div class="row scad-row green" style="opacity:.6;margin-bottom:6px">
+      <div class="row-flex">
+        <div>
+          <span style="font-weight:500;color:var(--on-sur-var);font-size:13px;text-decoration:line-through">${esc(s.tipo)}</span>
+          <span style="margin-left:8px;font-size:11px;color:var(--on-sur-var)">${v ? esc(v.targa) : ''}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="badge" style="background:rgba(114,217,160,.1);color:var(--suc)">FATTO</span>
+          <input type="checkbox" checked style="accent-color:var(--suc);width:16px;height:16px;cursor:pointer"
+            onchange="completaScadenza(${s.id},${s.vehicleId},this.checked)"/>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="page-header">
+      <div>
+        <div class="page-title">Scadenze</div>
+        <div class="page-subtitle">${active.length} attive · ${done.length} completate</div>
+      </div>
+    </div>
+    ${rows}
+    ${done.length ? `
+      <div style="margin:24px 0 12px;font-size:12px;font-weight:600;color:var(--on-sur-var);letter-spacing:.5px;text-transform:uppercase">📋 Storico completate</div>
+      ${doneRows}
+    ` : ''}`;
+}
+
+
+function renderScadenzeTab(v) {
+  const all = DATA.scadenze.filter(s=>s.vehicleId===v.id);
+  const attive  = all.filter(s=>!s.done).sort((a,b)=>daysUntil(a.scadenza)-daysUntil(b.scadenza));
+  const storico = all.filter(s=>s.done).sort((a,b)=>new Date(b.dataCompletata||b.scadenza)-new Date(a.dataCompletata||a.scadenza));
+
+  const rowAttiva = s => {
+    const days = daysUntil(s.scadenza);
+    return `<div class="row row-flex">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <input type="checkbox" title="Segna come completata"
+          style="width:17px;height:17px;accent-color:var(--suc);cursor:pointer;flex-shrink:0"
+          onchange="completaScadenza(${s.id},${v.id},this.checked)"/>
+        <div>
+          <span style="color:var(--on-sur);font-weight:600">${esc(s.tipo)}</span>
+          ${s.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(s.note)}</div>`:""}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(s.scadenza)}</span>
+        ${badge(days)}
+        <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:var(--err)55;cursor:pointer;font-size:16px" title="Elimina">×</button>
+      </div>
+    </div>`;
+  };
+
+  const rowStorico = s => `
+    <div class="row row-flex" style="opacity:0.55">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <input type="checkbox" checked title="Annulla completamento"
+          style="width:17px;height:17px;accent-color:var(--suc);cursor:pointer;flex-shrink:0"
+          onchange="completaScadenza(${s.id},${v.id},this.checked)"/>
+        <div>
+          <span style="color:var(--on-sur-var);font-weight:600;text-decoration:line-through">${esc(s.tipo)}</span>
+          ${s.dataCompletata?`<div style="color:var(--suc);font-size:11px;margin-top:1px">✓ fatto il ${fmtDate(s.dataCompletata)}</div>`:""}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(s.scadenza)}</span>
+        <span class="badge" style="background:var(--suc)22;color:var(--suc);border:1px solid var(--suc)44">FATTO</span>
+        <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:var(--err)55;cursor:pointer;font-size:16px" title="Elimina dallo storico">×</button>
+      </div>
+    </div>`;
+
+  const righeAttive  = attive.map(rowAttiva).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:16px;font-size:13px">Nessuna scadenza attiva</div>`;
+  const righeStorico = storico.length ? `
+    <div style="margin-top:20px">
+      <div style="color:var(--on-sur-var);font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;padding:0 4px">📋 STORICO COMPLETATE</div>
+      ${storico.map(rowStorico).join("")}
+    </div>` : "";
+
+  return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
+    <span style="color:var(--on-sur-var);font-size:13px">${attive.length} attive · ${storico.length} completate</span>
+    <button class="btn" onclick="openModal('addScadenza',${v.id})">+ Aggiungi</button></div>
+    ${righeAttive}${righeStorico}`;
+}
+
+function renderManutenzioniTab(v) {
+  const items = DATA.manutenzioni.filter(m=>m.vehicleId===v.id).sort((a,b)=>new Date(b.data)-new Date(a.data));
+  const rows = items.map(m=>`
+    <div class="row">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
+        <div>
+          <span style="color:var(--on-sur);font-weight:600">${esc(m.descrizione)}</span>
+          <span style="color:var(--on-sur-var);font-size:12px;background:var(--out-var);border-radius:4px;padding:1px 6px;margin-left:6px">${esc(m.tipo)}</span>
+        </div>
+        <div style="text-align:right">
+          <div style="color:var(--warn);font-weight:700">${m.costo?`€ ${m.costo}`:"—"}</div>
+          <div style="color:var(--on-sur-var);font-size:11px">${fmtDate(m.data)}</div>
+        </div>
+      </div>
+      <div style="color:var(--on-sur-var);font-size:12px;margin-top:4px">km: ${Number(m.km).toLocaleString("it-IT")}</div>
+      ${m.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:4px;font-style:italic;border-top:1px solid var(--out-var);padding-top:4px">${esc(m.note)}</div>`:""}
+    </div>`).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:24px">Nessuna manutenzione registrata</div>`;
+  return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
+    <span style="color:var(--on-sur-var);font-size:13px">${items.length} interventi</span>
+    <button class="btn" onclick="openModal('addManutenzione',${v.id})">+ Aggiungi</button></div>${rows}`;
+}
+
+let KM_CHART_MODE = "mese";
+
+function setKmChartMode(mode) {
+  KM_CHART_MODE = mode;
+  // Aggiorna solo il grafico senza ricostruire tutto il DOM
+  const container = document.getElementById("km-chart-container");
+  if (container) {
+    const vid = SELECTED_VEHICLE ? SELECTED_VEHICLE.id : null;
+    if (vid !== null) {
+      container.outerHTML = buildKmGrafico(DATA.kmLog.filter(k=>k.vehicleId===vid));
+    }
+  }
+}
+
+function buildKmGrafico(items) {
+  if (items.length === 0) return `<div id="km-chart-container"></div>`;
+
+  const sorted = [...items].sort((a,b)=>new Date(a.data)-new Date(b.data));
+
+  // Raggruppa: prende il km massimo per ogni periodo
+  const groups = {};
+  sorted.forEach(k => {
+    const d = new Date(k.data);
+    const key = KM_CHART_MODE === "mese"
+      ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`
+      : `${d.getFullYear()}`;
+    if (!(key in groups) || k.km > groups[key]) groups[key] = k.km;
+  });
+
+  const keys = Object.keys(groups).sort();
+
+  // Calcola delta: km percorsi in ogni periodo rispetto al precedente
+  // Se un solo periodo, mostra i km totali come valore assoluto
+  let bars = "";
+  if (keys.length === 1) {
+    // Un solo periodo: mostra valore assoluto
+    const label = KM_CHART_MODE === "mese"
+      ? keys[0].slice(5) + "/" + keys[0].slice(2,4)
+      : keys[0];
+    bars = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
+      <span style="color:var(--on-sur-var);font-size:9px;font-weight:600">${Number(groups[keys[0]]).toLocaleString("it-IT")}</span>
+      <div style="width:40px;height:110px;background:var(--pri);border-radius:4px 4px 0 0;min-height:3px"></div>
+      <span style="color:var(--on-sur-var);font-size:9px;white-space:nowrap">${label}</span>
+    </div>`;
+  } else {
+    const deltas = keys.map((k,i) => {
+      if (i === 0) return null;
+      return { label: k, val: Math.max(0, groups[k] - groups[keys[i-1]]) };
+    }).filter(Boolean);
+
+    const maxVal = Math.max(...deltas.map(d=>d.val), 1);
+    const barWidth = Math.max(24, Math.min(52, Math.floor(540 / deltas.length) - 6));
+
+    bars = deltas.map(d => {
+      const h = Math.max(3, Math.round((d.val / maxVal) * 110));
+      const isMax = d.val === maxVal;
+      const color = isMax ? "var(--pri)" : "var(--pri)66";
+      const label = KM_CHART_MODE === "mese"
+        ? d.label.slice(5) + "/" + d.label.slice(2,4)
+        : d.label;
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
+        <span style="color:${isMax?'var(--on-sur)':'var(--on-sur-var)'};font-size:9px;font-weight:${isMax?700:400}">${Number(d.val).toLocaleString("it-IT")}</span>
+        <div style="width:${barWidth}px;height:${h}px;background:${color};border-radius:4px 4px 0 0;"
+             title="${label}: ${Number(d.val).toLocaleString("it-IT")} km"></div>
+        <span style="color:var(--on-sur-var);font-size:9px;white-space:nowrap">${label}</span>
+      </div>`;
+    }).join("");
+  }
+
+  return `<div id="km-chart-container" style="background:var(--s2);border:1px solid var(--out-var);border-radius:10px;padding:16px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <span style="color:var(--on-sur);font-size:13px;font-weight:700">📈 KM PERCORSI</span>
+      <div style="display:flex;gap:4px">
+        <button onclick="setKmChartMode('mese')"
+          style="font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;border:1px solid var(--pri);
+                 background:${KM_CHART_MODE==='mese'?'var(--pri)':'transparent'};
+                 color:${KM_CHART_MODE==='mese'?'#fff':'var(--pri)'}">Per mese</button>
+        <button onclick="setKmChartMode('anno')"
+          style="font-size:11px;padding:3px 10px;border-radius:5px;cursor:pointer;border:1px solid var(--pri);
+                 background:${KM_CHART_MODE==='anno'?'var(--pri)':'transparent'};
+                 color:${KM_CHART_MODE==='anno'?'#fff':'var(--pri)'}">Per anno</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <div style="display:flex;align-items:flex-end;gap:6px;min-height:140px;padding:4px 0 0 0;min-width:fit-content">
+        ${bars}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderKmTab(v) {
+  const items = DATA.kmLog.filter(k=>k.vehicleId===v.id).sort((a,b)=>new Date(b.data)-new Date(a.data));
+
+  const grafico = items.length > 0
+    ? buildKmGrafico(items)
+    : "";
+
+  const rows = items.map(k=>`
+    <div class="row row-flex">
+      <div>
+        <span style="color:var(--pri);font-weight:700;font-size:16px">${Number(k.km).toLocaleString("it-IT")} km</span>
+        ${k.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(k.note)}</div>`:""}
+      </div>
+      <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(k.data)}</span>
+    </div>`).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:24px">Nessun aggiornamento km</div>`;
+
+  return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
+    <span style="color:var(--on-sur-var);font-size:13px">${items.length} aggiornamenti</span>
+    <button class="btn" onclick="openModal('addKm',${v.id})">+ Aggiorna km</button></div>
+    ${grafico}${rows}`;
+}
+
+function renderGommeTab(v) {
+  const items = DATA.gomme.filter(g=>g.vehicleId===v.id).sort((a,b)=>new Date(b.data)-new Date(a.data));
+  const rows = items.map(g=>`
+    <div class="row row-flex">
+      <div>
+        <span style="color:var(--on-sur);font-weight:600">${esc(g.tipo)}</span>
+        ${g.marca?`<span style="color:var(--on-sur-var);font-size:12px;margin-left:8px">${esc(g.marca)}</span>`:""}
+        ${g.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(g.note)}</div>`:""}
+      </div>
+      <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(g.data)}</span>
+    </div>`).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:24px">Nessun cambio gomme registrato</div>`;
+  return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
+    <span style="color:var(--on-sur-var);font-size:13px">${items.length} cambi</span>
+    <button class="btn" onclick="openModal('addGomma',${v.id})">+ Aggiungi</button></div>${rows}`;
+}
+
+// ─── CHECKLIST VOCI ───────────────────────────────────────────────────────
+const CHECKLIST_VOCI = [
+  "Verifica liquidi (olio freni, raffreddamento, motore, lavacristalli)",
+  "Pressione pneumatici",
+  "Olio motore",
+  "Filtro olio",
+  "Filtro aria",
+  "Filtro antipolline",
+  "Candele / Candelette",
+  "Olio cambio / Differenziale",
+  "Antigelo",
+  "Ammortizzatori anteriori",
+  "Ammortizzatori posteriori",
+  "Cinghia distribuzione",
+  "Liquido freni",
+  "Pastiglie freni anteriori",
+  "Tamburi freni posteriori",
+  "Dischi freni anteriori",
+  "GOMME – sostituzione",
+  "Equilibratura",
+  "Convergenza",
+  "Inversione gomme",
+  "Altro"
+];
+
+function renderChecklistTab(v) {
+  const checklist = (v.checklist || []);
+  // Normalizza struttura: accetta sia numeri (vecchi) che oggetti {i, data}
+  const normalize = (c) => typeof c === "object" ? c : { i: c, data: new Date().toISOString().split("T")[0] };
+  const checkedMap = {};
+  checklist.forEach(c => { const n = normalize(c); checkedMap[n.i] = n.data; });
+
+  const items = CHECKLIST_VOCI.map((voce, i) => {
+    const isChecked = i in checkedMap;
+    const dataVal = checkedMap[i] || "";
+    return `<div class="checklist-item ${isChecked?'checked':''}" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px;width:100%" onclick="toggleChecklist(${v.id},${i})">
+        <input type="checkbox" ${isChecked?'checked':''} onclick="event.stopPropagation();toggleChecklist(${v.id},${i})"/>
+        <label style="flex:1">${esc(voce)}</label>
+      </div>
+      ${isChecked ? `<input type="date" value="${dataVal}"
+        style="background:var(--s0);border:1px solid var(--out-var);border-radius:5px;padding:3px 8px;color:var(--on-sur-var);font-size:11px;width:100%;outline:none"
+        onclick="event.stopPropagation()"
+        onchange="setChecklistDate(${v.id},${i},this.value)"/>` : ""}
+    </div>`;
+  }).join("");
+
+  const done = Object.keys(checkedMap).length;
+  const pct = Math.round(done / CHECKLIST_VOCI.length * 100);
+  const barColor = pct === 100 ? "var(--suc)" : pct >= 50 ? "var(--warn)" : "var(--pri)";
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <span style="color:var(--on-sur-var);font-size:13px">${done} / ${CHECKLIST_VOCI.length} completate</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="width:100px;height:6px;background:var(--out-var);border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px;transition:width .3s"></div>
+        </div>
+        <span style="color:${barColor};font-size:12px;font-weight:700">${pct}%</span>
+        <button class="btn" onclick="resetChecklist(${v.id})">🔄 Reset</button>
+        <button class="btn btn-green" onclick="salvaChecklistInManutenzioni(${v.id})" title="Registra le voci spuntate come manutenzione">📋 Salva in manutenzioni</button>
+      </div>
+    </div>
+    <div class="checklist-grid">${items}</div>`;
+}
+
+function toggleChecklist(vehicleId, index) {
+  if (!canEdit()) return;
+  const v = DATA.vehicles.find(x => x.id === vehicleId);
+  if (!v) return;
+  if (!v.checklist) v.checklist = [];
+  const existing = v.checklist.findIndex(c => (typeof c === "object" ? c.i : c) === index);
+  if (existing === -1) {
+    const today = new Date().toISOString().split("T")[0];
+    v.checklist.push({ i: index, data: today });
+  } else {
+    v.checklist.splice(existing, 1);
+  }
+  saveData();
+  renderContent();
+}
+
+function setChecklistDate(vehicleId, index, dateVal) {
+  const v = DATA.vehicles.find(x => x.id === vehicleId);
+  if (!v || !v.checklist) return;
+  const existing = v.checklist.find(c => (typeof c === "object" ? c.i : c) === index);
+  if (existing && typeof existing === "object") {
+    existing.data = dateVal;
+    saveData();
+  }
+}
+
+function salvaChecklistInManutenzioni(vehicleId) {
+  const v = DATA.vehicles.find(x => x.id === vehicleId);
+  if (!v || !v.checklist || v.checklist.length === 0) {
+    showAlert("❌ Nessuna voce spuntata nella checklist", false); return;
+  }
+  const checked = v.checklist.map(c => typeof c === "object" ? c : { i: c, data: new Date().toISOString().split("T")[0] });
+  const voci = checked.map(c => `• ${CHECKLIST_VOCI[c.i]} (${fmtDate(c.data)})`).join("\n");
+  DATA.manutenzioni.push({
+    id: DATA.nextId.manutenzione++,
+    vehicleId,
+    tipo: "Ordinaria",
+    descrizione: "Checklist manutenzione",
+    data: checked[0].data,
+    km: v.km || 0,
+    costo: 0,
+    note: voci
+  });
+  saveData();
+  showAlert("✅ Checklist salvata nelle manutenzioni!");
+  renderContent();
+}
+
+function resetChecklist(vehicleId) {
+  const v = DATA.vehicles.find(x => x.id === vehicleId);
+  if (!v) return;
+  v.checklist = [];
+  saveData();
+  renderContent();
+}
+
+function renderNoteTab(v) {
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="color:var(--on-sur-var);font-size:13px">Note libere per questo furgone</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="note-status" style="color:var(--on-sur-var);font-size:11px"></span>
+        <button class="btn" onclick="saveNote(${v.id})">💾 Salva</button>
+      </div>
+    </div>
+    <textarea id="noteArea" rows="14"
+      style="width:100%;background:var(--s0);border:1px solid var(--out-var);border-radius:8px;padding:16px;
+             color:var(--on-sur);font-size:14px;line-height:1.6;resize:vertical;outline:none;font-family:inherit"
+      placeholder="Scrivi qui note, promemoria, informazioni utili..."
+      oninput="noteUnsaved(${v.id})"
+    >${esc(v.note||"")}</textarea>`;
+}
+
+function noteUnsaved(vehicleId) {
+  // Salva in memoria senza re-render (no perdita focus)
+  const el = document.getElementById("noteArea");
+  const st = document.getElementById("note-status");
+  if (!el) return;
+  const v = DATA.vehicles.find(x => x.id === vehicleId);
+  if (v) v.note = el.value;
+  if (st) { st.textContent = "● non salvato"; st.style.color = "var(--warn)"; }
 }
 
 // ───────────────────── ALL SCADENZE ──────────────────────────────────────
@@ -917,29 +1797,29 @@ function renderAllScadenze() {
     .map(s=>({...s,days:daysUntil(s.scadenza),v:DATA.vehicles.find(x=>x.id===s.vehicleId)||{}}))
     .sort((a,b)=>a.days-b.days)
     .map(s=>{
-      const c = s.done ? "#06d6a0" : urgColor(s.days);
+      const c = s.done ? "var(--suc)" : urgColor(s.days);
       const diff = s.days<0?`${Math.abs(s.days)}gg fa`:s.days===0?"oggi":`${s.days}gg`;
-      return `<div style="background:#1a1d26;border-radius:8px;padding:12px 16px;margin-bottom:8px;
+      return `<div style="background:var(--s2);border-radius:8px;padding:12px 16px;margin-bottom:8px;
               border:1px solid ${c}22;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
               ${s.done?'opacity:0.55':''}">
         <div style="display:flex;align-items:center;gap:10px">
           <input type="checkbox" ${s.done?'checked':''} title="${s.done?'Annulla completamento':'Segna come completata'}"
-            style="width:17px;height:17px;accent-color:#06d6a0;cursor:pointer;flex-shrink:0"
+            style="width:17px;height:17px;accent-color:var(--suc);cursor:pointer;flex-shrink:0"
             onchange="completaScadenza(${s.id},${s.vehicleId},this.checked)"/>
           <div>
-            <span style="color:${s.done?'#8b95a8':'#e8eaf0'};font-weight:600${s.done?';text-decoration:line-through':''}">${esc(s.tipo)}</span>
-            <div style="color:#8b95a8;font-size:12px;margin-top:2px">${esc(s.v.targa||"")} — ${esc(s.v.modello||"")}</div>
-            ${s.done&&s.dataCompletata?`<div style="color:#06d6a0;font-size:11px">✓ fatto il ${fmtDate(s.dataCompletata)}</div>`:""}
+            <span style="color:${s.done?'var(--on-sur-var)':'var(--on-sur)'};font-weight:600${s.done?';text-decoration:line-through':''}">${esc(s.tipo)}</span>
+            <div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(s.v.targa||"")} — ${esc(s.v.modello||"")}</div>
+            ${s.done&&s.dataCompletata?`<div style="color:var(--suc);font-size:11px">✓ fatto il ${fmtDate(s.dataCompletata)}</div>`:""}
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <span style="color:#8b95a8;font-size:12px">${fmtDate(s.scadenza)}</span>
-          ${s.done?'<span class="badge" style="background:#06d6a022;color:#06d6a0;border:1px solid #06d6a044">FATTO</span>':badge(s.days)}
-          <span style="color:#8b95a8;font-size:11px">${diff}</span>
+          <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(s.scadenza)}</span>
+          ${s.done?'<span class="badge" style="background:var(--suc)22;color:var(--suc);border:1px solid var(--suc)44">FATTO</span>':badge(s.days)}
+          <span style="color:var(--on-sur-var);font-size:11px">${diff}</span>
         </div>
       </div>`;
-    }).join("") || `<div style="color:#8b95a8;text-align:center;padding:32px">Nessuna scadenza</div>`;
-  return `<h2 style="color:#e8eaf0;margin-bottom:16px;font-size:16px;letter-spacing:1px">📅 TUTTE LE SCADENZE</h2>${rows}`;
+    }).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:32px">Nessuna scadenza</div>`;
+  return `<h2 style="color:var(--on-sur);margin-bottom:16px;font-size:16px;letter-spacing:1px">📅 TUTTE LE SCADENZE</h2>${rows}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -967,7 +1847,7 @@ function openModal(type, vehicleId) {
     <div class="field"><label>Data</label><input id="m_data" type="date" value="${today}"/></div>
     <div class="field"><label>Km attuali</label><input id="m_km" type="number" value="${v.km||0}"/></div>
     <div class="field"><label>Costo (€)</label><input id="m_costo" type="number" placeholder="0"/></div>
-    <div class="field"><label>Note (opzionale)</label><textarea id="m_note" rows="3" style="width:100%;background:#0f1117;border:1px solid #2e3347;border-radius:6px;padding:8px 12px;color:#e8eaf0;font-size:14px;resize:vertical;outline:none" placeholder="Officina, ricambi, osservazioni..."></textarea></div>
+    <div class="field"><label>Note (opzionale)</label><textarea id="m_note" rows="3" style="width:100%;background:var(--s0);border:1px solid var(--out-var);border-radius:6px;padding:8px 12px;color:var(--on-sur);font-size:14px;resize:vertical;outline:none" placeholder="Officina, ricambi, osservazioni..."></textarea></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
       <button class="btn" onclick="submitManutenzione(${vehicleId})">Salva</button></div>`;
@@ -1097,7 +1977,7 @@ function saveNote(vehicleId) {
   const txt = el ? el.value : "";
   DATA.vehicles = DATA.vehicles.map(v=>v.id===vehicleId?{...v,note:txt}:v);
   const st = document.getElementById("note-status");
-  if (st) { st.textContent = "✓ salvato"; st.style.color = "#06d6a0"; }
+  if (st) { st.textContent = "✓ salvato"; st.style.color = "var(--suc)"; }
   saveData();
   showAlert("✅ Note salvate!");
 }
@@ -1306,10 +2186,10 @@ function normalizeData(val) {
 }
 
 async function saveData() {
-  SAVING = true; renderHeader();
+  SAVING = true; updateTopbar();
   try { await fbSave(DATA); }
   catch(e) { showAlert("❌ Errore salvataggio: " + e.message, false); }
-  finally { SAVING = false; renderHeader(); }
+  finally { SAVING = false; updateTopbar(); }
 }
 
 // Polling ogni 15 secondi per aggiornamenti del team
@@ -1405,10 +2285,10 @@ function openMigrateVehicleModal(vid) {
   overlay.innerHTML = '<div class="modal" style="max-width:380px">'
     + '<div class="modal-header"><h3>🔀 Migra ' + esc(v.targa) + '</h3>'
     + '<button class="modal-close" onclick="document.getElementById(\'fleet-overlay\').remove()">×</button></div>'
-    + '<p style="color:#8b95a8;font-size:13px;margin-bottom:14px">Scegli la flotta di destinazione. Il veicolo e tutti i suoi dati verranno spostati.</p>'
+    + '<p style="color:var(--on-sur-var);font-size:13px;margin-bottom:14px">Scegli la flotta di destinazione. Il veicolo e tutti i suoi dati verranno spostati.</p>'
     + personalBtn + fleetBtns
-    + '<div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;color:#8b95a8;font-size:12px;cursor:pointer">'
-    + '<input type="checkbox" id="migrate-keep" style="accent-color:#3d7eff"/> Mantieni una copia anche in questa flotta</label></div>'
+    + '<div style="margin-top:8px"><label style="display:flex;align-items:center;gap:8px;color:var(--on-sur-var);font-size:12px;cursor:pointer">'
+    + '<input type="checkbox" id="migrate-keep" style="accent-color:var(--pri)"/> Mantieni una copia anche in questa flotta</label></div>'
     + '</div>';
   document.body.appendChild(overlay);
 }
@@ -1488,45 +2368,45 @@ function buildFleetManagerHTML() {
 
   const fleetRows = Object.entries(MY_FLEETS).map(([fid,f]) => {
     const active = CURRENT_FLEET_ID === fid;
-    const bg  = active ? "#3d7eff18" : "#0f1117";
-    const bdr = active ? "#3d7eff55" : "#2e3347";
+    const bg  = active ? "var(--pri)18" : "var(--bg)";
+    const bdr = active ? "var(--pri)55" : "var(--out-var)";
     const switchBtn = active
-      ? '<span style="color:#3d7eff;font-size:11px;font-weight:700">ATTIVA</span>'
+      ? '<span style="color:var(--pri);font-size:11px;font-weight:700">ATTIVA</span>'
       : '<button class="btn" onclick="switchFleet(\'' + fid + '\')" style="font-size:11px;padding:3px 9px">Apri</button>';
     const adminBtn = f.role === "admin"
       ? '<button class="btn" onclick="openInvitePanel(\'' + fid + '\')" style="font-size:11px;padding:3px 9px">🔗</button>'
       : '';
-    const leaveBtn = '<button onclick="leaveFleet(\'' + fid + '\')" title="' + (f.role==="admin"?"Elimina flotta":"Abbandona flotta") + '" style="background:none;border:none;color:#ff3b3b66;cursor:pointer;font-size:18px;line-height:1">×</button>';
+    const leaveBtn = '<button onclick="leaveFleet(\'' + fid + '\')" title="' + (f.role==="admin"?"Elimina flotta":"Abbandona flotta") + '" style="background:none;border:none;color:var(--err)66;cursor:pointer;font-size:18px;line-height:1">×</button>';
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;background:' + bg + ';border:1px solid ' + bdr + '">'
       + '<div style="flex:1;min-width:0">'
-      + '<div style="color:#e8eaf0;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(f.name) + '</div>'
-      + '<div style="color:#8b95a8;font-size:11px">' + (roleIcon[f.role]||'') + ' ' + (roleLabel[f.role]||f.role) + '</div>'
+      + '<div style="color:var(--on-sur);font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(f.name) + '</div>'
+      + '<div style="color:var(--on-sur-var);font-size:11px">' + (roleIcon[f.role]||'') + ' ' + (roleLabel[f.role]||f.role) + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:5px;flex-shrink:0">' + switchBtn + adminBtn + leaveBtn + '</div>'
       + '</div>';
-  }).join('') || '<div style="color:#8b95a8;font-size:12px;padding:4px 0 8px">Nessuna flotta condivisa ancora</div>';
+  }).join('') || '<div style="color:var(--on-sur-var);font-size:12px;padding:4px 0 8px">Nessuna flotta condivisa ancora</div>';
 
-  const pBg  = pActive ? "#3d7eff18" : "#0f1117";
-  const pBdr = pActive ? "#3d7eff55" : "#2e3347";
+  const pBg  = pActive ? "var(--pri)18" : "var(--bg)";
+  const pBdr = pActive ? "var(--pri)55" : "var(--out-var)";
   const personalBtn = pActive
-    ? '<span style="color:#3d7eff;font-size:11px;font-weight:700">ATTIVA</span>'
+    ? '<span style="color:var(--pri);font-size:11px;font-weight:700">ATTIVA</span>'
     : '<button class="btn" onclick="switchFleet(\'personal\')" style="font-size:11px;padding:3px 9px">Apri</button>';
 
   return '<div class="modal" style="max-width:460px;max-height:85vh;overflow-y:auto">'
     + '<div class="modal-header"><h3>🏢 Gestione flotte</h3>'
     + '<button class="modal-close" onclick="document.getElementById(\'fleet-overlay\').remove()">×</button></div>'
     + '<div style="margin-bottom:16px">'
-    + '<div style="color:#8b95a8;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px">LE MIE FLOTTE</div>'
+    + '<div style="color:var(--on-sur-var);font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px">LE MIE FLOTTE</div>'
     + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;background:' + pBg + ';border:1px solid ' + pBdr + '">'
-    + '<div style="flex:1"><div style="color:#e8eaf0;font-weight:600;font-size:13px">🙋 Flotta personale</div>'
-    + '<div style="color:#8b95a8;font-size:11px">Solo tua — sempre disponibile</div></div>'
+    + '<div style="flex:1"><div style="color:var(--on-sur);font-weight:600;font-size:13px">🙋 Flotta personale</div>'
+    + '<div style="color:var(--on-sur-var);font-size:11px">Solo tua — sempre disponibile</div></div>'
     + personalBtn
     + '<button class="btn" onclick="openCopyToFleetModal()" title="Copia veicoli in una flotta di gruppo" style="font-size:11px;padding:3px 9px">📋 Copia</button>'
     + '</div>'
     + fleetRows
     + '</div>'
     + '<div id="fleet-panel-body"></div>'
-    + '<div style="border-top:1px solid #2e3347;padding-top:14px;display:flex;gap:8px">'
+    + '<div style="border-top:1px solid var(--out-var);padding-top:14px;display:flex;gap:8px">'
     + '<button class="btn btn-green" onclick="showCreateFleetPanel()" style="flex:1">➕ Crea flotta</button>'
     + '<button class="btn" onclick="showJoinFleetPanel()" style="flex:1">🔑 Entra con codice</button>'
     + '</div></div>';
@@ -1539,11 +2419,11 @@ function setFleetPanel(html) {
 
 function showCreateFleetPanel() {
   setFleetPanel(`
-    <div style="background:#0f1117;border:1px solid #2e3347;border-radius:8px;padding:14px;margin-bottom:14px">
-      <div style="color:#e8eaf0;font-weight:700;font-size:13px;margin-bottom:10px">➕ Nuova flotta di gruppo</div>
+    <div style="background:var(--s0);border:1px solid var(--out-var);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="color:var(--on-sur);font-weight:700;font-size:13px;margin-bottom:10px">➕ Nuova flotta di gruppo</div>
       <div class="field"><label>Nome flotta</label>
         <input id="fp-name" type="text" placeholder="Es. Flotta Aziendale Modus" autofocus/></div>
-      <div id="fp-err" style="color:#ff3b3b;font-size:12px;min-height:14px"></div>
+      <div id="fp-err" style="color:var(--err);font-size:12px;min-height:14px"></div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-ghost" onclick="setFleetPanel('')" style="flex:1">Annulla</button>
         <button class="btn btn-green" onclick="doCreateFleet()" style="flex:1">Crea</button>
@@ -1568,12 +2448,12 @@ async function doCreateFleet() {
 
 function showJoinFleetPanel() {
   setFleetPanel(`
-    <div style="background:#0f1117;border:1px solid #2e3347;border-radius:8px;padding:14px;margin-bottom:14px">
-      <div style="color:#e8eaf0;font-weight:700;font-size:13px;margin-bottom:10px">🔑 Entra con codice invito</div>
+    <div style="background:var(--s0);border:1px solid var(--out-var);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="color:var(--on-sur);font-weight:700;font-size:13px;margin-bottom:10px">🔑 Entra con codice invito</div>
       <div class="field"><label>Codice</label>
         <input id="fp-code" type="text" placeholder="FLEET-XXXX"
           style="text-transform:uppercase;letter-spacing:3px;font-weight:800;font-size:15px" autofocus/></div>
-      <div id="fp-err" style="color:#ff3b3b;font-size:12px;min-height:14px"></div>
+      <div id="fp-err" style="color:var(--err);font-size:12px;min-height:14px"></div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-ghost" onclick="setFleetPanel('')" style="flex:1">Annulla</button>
         <button class="btn" onclick="doJoinFleet()" style="flex:1">Entra</button>
@@ -1598,8 +2478,8 @@ async function doJoinFleet() {
 
 function openInvitePanel(fleetId) {
   setFleetPanel(`
-    <div style="background:#0f1117;border:1px solid #2e3347;border-radius:8px;padding:14px;margin-bottom:14px">
-      <div style="color:#e8eaf0;font-weight:700;font-size:13px;margin-bottom:10px">🔗 Genera codice invito</div>
+    <div style="background:var(--s0);border:1px solid var(--out-var);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="color:var(--on-sur);font-weight:700;font-size:13px;margin-bottom:10px">🔗 Genera codice invito</div>
       <div class="field"><label>Ruolo dell'invitato</label>
         <select id="fp-role">
           <option value="editor">✏️ Editor — può modificare</option>
@@ -1616,24 +2496,24 @@ function openInvitePanel(fleetId) {
 
 async function doGenerateInvite(fleetId) {
   const role = document.getElementById("fp-role")?.value||"editor";
-  document.getElementById("fp-invite-result").innerHTML = '<span style="color:#8b95a8;font-size:12px">⏳ Generazione...</span>';
+  document.getElementById("fp-invite-result").innerHTML = '<span style="color:var(--on-sur-var);font-size:12px">⏳ Generazione...</span>';
   try {
     const code = await generateAndPublishInvite(fleetId, role);
     const exp = new Date(Date.now()+24*60*60*1000).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
     const flName = MY_FLEETS[fleetId]?.name||fleetId;
     const rl = {admin:"Admin",editor:"Editor",viewer:"Viewer"}[role]||role;
     document.getElementById("fp-invite-result").innerHTML = `
-      <div style="background:#06d6a018;border:1px solid #06d6a044;border-radius:8px;padding:12px">
-        <div style="color:#8b95a8;font-size:11px;margin-bottom:6px">Valido fino al ${exp} · Ruolo: <b style="color:#e8eaf0">${rl}</b></div>
+      <div style="background:var(--suc)18;border:1px solid var(--suc)44;border-radius:8px;padding:12px">
+        <div style="color:var(--on-sur-var);font-size:11px;margin-bottom:6px">Valido fino al ${exp} · Ruolo: <b style="color:var(--on-sur)">${rl}</b></div>
         <div style="display:flex;align-items:center;gap:10px">
-          <code style="color:#06d6a0;font-size:20px;font-weight:900;letter-spacing:4px;flex:1">${code}</code>
+          <code style="color:var(--suc);font-size:20px;font-weight:900;letter-spacing:4px;flex:1">${code}</code>
           <button class="btn btn-green" onclick="navigator.clipboard.writeText('${code}').then(()=>showAlert('📋 Codice copiato!'))"
             style="font-size:11px;padding:4px 10px;flex-shrink:0">Copia</button>
         </div>
-        <div style="color:#8b95a8;font-size:11px;margin-top:6px">Flotta: <b style="color:#e8eaf0">${esc(flName)}</b></div>
+        <div style="color:var(--on-sur-var);font-size:11px;margin-top:6px">Flotta: <b style="color:var(--on-sur)">${esc(flName)}</b></div>
       </div>`;
   } catch(e) {
-    document.getElementById("fp-invite-result").innerHTML = '<span style="color:#ff3b3b;font-size:12px">❌ '+e.message+'</span>';
+    document.getElementById("fp-invite-result").innerHTML = '<span style="color:var(--err);font-size:12px">❌ '+e.message+'</span>';
   }
 }
 
@@ -1645,7 +2525,7 @@ async function switchFleet(fleetId) {
   clearInterval(pollInterval);
   DATA = null;
   document.getElementById("app").innerHTML =
-    `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#3d7eff;font-size:16px">
+    `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--pri);font-size:16px">
       <div class="spinner" style="width:28px;height:28px;border-width:3px;margin-right:10px"></div> Caricamento flotta...
     </div>`;
   try {
@@ -1747,7 +2627,7 @@ function openCopyToFleetModal() {
   overlay.innerHTML = '<div class="modal" style="max-width:380px">'
     + '<div class="modal-header"><h3>📋 Copia veicoli in flotta</h3>'
     + '<button class="modal-close" onclick="document.getElementById(\'fleet-overlay\').remove()">×</button></div>'
-    + '<p style="color:#8b95a8;font-size:13px;margin-bottom:14px">Scegli la flotta di gruppo dove copiare i veicoli della tua flotta personale:</p>'
+    + '<p style="color:var(--on-sur-var);font-size:13px;margin-bottom:14px">Scegli la flotta di gruppo dove copiare i veicoli della tua flotta personale:</p>'
     + options + '</div>';
   document.body.appendChild(overlay);
 }
@@ -1772,8 +2652,8 @@ function buildAuthScreen() {
     + '<div class="auth-box">'
     + '<div style="text-align:center;margin-bottom:24px">'
     + '<div style="font-size:40px">🚐</div>'
-    + '<div style="color:#e8eaf0;font-size:20px;font-weight:800;margin-top:8px">Fleet Manager</div>'
-    + '<div style="color:#8b95a8;font-size:13px;margin-top:4px">Gestione flotta aziendale</div>'
+    + '<div style="color:var(--on-sur);font-size:20px;font-weight:800;margin-top:8px">Fleet Manager</div>'
+    + '<div style="color:var(--on-sur-var);font-size:13px;margin-top:4px">Gestione flotta aziendale</div>'
     + '</div>'
     + '<div class="auth-tabs">'
     + '<button ' + (isLogin ? activeTab : inactiveTab) + ' onclick="AUTH_TAB=\'login\';document.getElementById(\'app\').innerHTML=buildAuthScreen()">Accedi</button>'
@@ -1882,7 +2762,7 @@ async function bootUser(user) {
   appEl.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:14px">
       <div class="spinner" style="width:36px;height:36px;border-width:3px"></div>
-      <div id="boot-status" style="color:#8b95a8;font-size:13px">Connessione...</div>
+      <div id="boot-status" style="color:var(--on-sur-var);font-size:13px">Connessione...</div>
     </div>`;
 
   try {
@@ -1907,8 +2787,8 @@ async function bootUser(user) {
     appEl.innerHTML =
       `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px">
         <div style="font-size:48px">❌</div>
-        <div style="color:#ff3b3b;font-size:16px;font-weight:700">Errore connessione</div>
-        <div style="color:#8b95a8;font-size:13px;max-width:400px;text-align:center">${e.message}</div>
+        <div style="color:var(--err);font-size:16px;font-weight:700">Errore connessione</div>
+        <div style="color:var(--on-sur-var);font-size:13px;max-width:400px;text-align:center">${e.message}</div>
         <button class="btn" onclick="bootUser(CURRENT_USER)">🔄 Riprova</button>
       </div>`;
   }
