@@ -1363,7 +1363,9 @@ function buildFleetManagerHTML() {
     + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;background:' + pBg + ';border:1px solid ' + pBdr + '">'
     + '<div style="flex:1"><div style="color:#e8eaf0;font-weight:600;font-size:13px">🙋 Flotta personale</div>'
     + '<div style="color:#8b95a8;font-size:11px">Solo tua — sempre disponibile</div></div>'
-    + personalBtn + '</div>'
+    + personalBtn
+    + '<button class="btn" onclick="openCopyToFleetModal()" title="Copia veicoli in una flotta di gruppo" style="font-size:11px;padding:3px 9px">📋 Copia</button>'
+    + '</div>'
     + fleetRows
     + '</div>'
     + '<div id="fleet-panel-body"></div>'
@@ -1519,6 +1521,69 @@ async function leaveFleet(fleetId) {
   } catch(e) { showAlert("❌ "+e.message, false); }
 }
 
+async function copyVehiclesToFleet(targetFleetId) {
+  document.getElementById("fleet-overlay")?.remove();
+  // Carica dati personali
+  const prevFleet = CURRENT_FLEET_ID;
+  const prevRole  = CURRENT_FLEET_ROLE;
+  try {
+    // Leggi flotta personale
+    const personalData = await fbGet(fbUserUrl(CURRENT_USER.uid));
+    if (!personalData?.vehicles?.length) {
+      showAlert("⚠️ Nessun veicolo nella flotta personale", false); return;
+    }
+    // Leggi flotta destinazione
+    const targetData = await fbGet(fbFleetDataUrl(targetFleetId));
+    const merged = targetData ? normalizeData(targetData) : defaultData();
+    // Copia veicoli (evita duplicati per targa)
+    const existingTarghe = new Set(merged.vehicles.map(v => v.targa));
+    const toAdd = personalData.vehicles.filter(v => !existingTarghe.has(v.targa));
+    if (!toAdd.length) { showAlert("⚠️ Tutti i veicoli sono già presenti nella flotta", false); return; }
+    // Ricalcola ID per evitare collisioni
+    const maxId = Math.max(0, ...merged.vehicles.map(v => v.id||0));
+    toAdd.forEach((v, i) => {
+      const oldId = v.id;
+      const newId = maxId + i + 1;
+      v = {...v, id: newId};
+      merged.vehicles.push(v);
+      // Copia anche scadenze/manutenzioni/km/gomme collegate
+      ["scadenze","manutenzioni","kmLog","gomme"].forEach(key => {
+        const items = (personalData[key]||[]).filter(x => x.vehicleId === oldId);
+        items.forEach(item => merged[key].push({...item, vehicleId: newId, id: (merged.nextId[key.replace("Log","")]||1) + merged[key].length}));
+      });
+    });
+    // Salva nella flotta destinazione
+    await fbPut(fbFleetDataUrl(targetFleetId), merged);
+    const flName = MY_FLEETS[targetFleetId]?.name || targetFleetId;
+    showAlert("✅ " + toAdd.length + " veicoli copiati in "" + flName + ""!");
+  } catch(e) {
+    showAlert("❌ Errore: " + e.message, false);
+  }
+}
+
+function openCopyToFleetModal() {
+  const adminFleets = Object.entries(MY_FLEETS).filter(([,f]) => f.role === "admin");
+  if (!adminFleets.length) {
+    showAlert("⚠️ Crea prima una flotta di gruppo di cui sei admin", false);
+    openFleetManager(); return;
+  }
+  document.getElementById("fleet-overlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "overlay"; overlay.id = "fleet-overlay";
+  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+  const options = adminFleets.map(([fid,f]) =>
+    '<button class="btn" onclick="copyVehiclesToFleet('' + fid + '')" style="width:100%;text-align:left;padding:10px 14px;margin-bottom:6px">'
+    + '🏢 ' + esc(f.name) + '</button>'
+  ).join('');
+  overlay.innerHTML = '<div class="modal" style="max-width:380px">'
+    + '<div class="modal-header"><h3>📋 Copia veicoli in flotta</h3>'
+    + '<button class="modal-close" onclick="document.getElementById('fleet-overlay').remove()">×</button></div>'
+    + '<p style="color:#8b95a8;font-size:13px;margin-bottom:14px">Scegli la flotta di gruppo dove copiare i veicoli della tua flotta personale:</p>'
+    + options + '</div>';
+  document.body.appendChild(overlay);
+}
+
+
 // ═══════════════════════════════════════════════════════════════════════════
 // AUTH UI
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1578,7 +1643,8 @@ function setAuthError(msg) {
 
 async function loginGoogle() {
   try {
-    await fbAuth.signInWithPopup(googleProvider);
+    // Usa redirect invece di popup — più affidabile su GitHub Pages e mobile
+    await fbAuth.signInWithRedirect(googleProvider);
   } catch(e) { setAuthError(authErr(e.code)); }
 }
 
@@ -1672,6 +1738,15 @@ async function bootUser(user) {
 }
 
 window.addEventListener("load", () => {
+  // Gestisci il risultato del redirect Google (se presente)
+  fbAuth.getRedirectResult().then(result => {
+    // Il redirect result viene gestito automaticamente da onAuthStateChanged
+  }).catch(e => {
+    if (e.code !== "auth/no-current-user") {
+      console.error("Redirect error:", e);
+    }
+  });
+
   fbAuth.onAuthStateChanged(user => {
     if (user) { bootUser(user); }
     else      { showAuthScreen(); }
