@@ -146,8 +146,10 @@
 
 <!-- ROOT -->
 <div id="app">
-  <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:18px;color:#3d7eff;">
-    <div class="spinner" style="width:32px;height:32px;margin-right:12px;"></div> Connessione a Firebase...
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:12px">
+    <div class="spinner" style="width:36px;height:36px;border-width:3px"></div>
+    <div style="color:#3d7eff;font-size:15px">Caricamento...</div>
+    <div style="color:#8b95a855;font-size:11px">Fleet Manager</div>
   </div>
 </div>
 
@@ -1677,22 +1679,27 @@ async function bootUser(user) {
 }
 
 window.addEventListener("load", () => {
-  // Timeout di sicurezza: se Firebase non risponde in 8s, mostra login
-  const authTimeout = setTimeout(() => {
-    console.warn("Firebase Auth timeout — showing login screen");
-    showAuthScreen();
-  }, 8000);
+  let authResolved = false;
 
-  // Gestisci il risultato del redirect Google (se presente)
-  fbAuth.getRedirectResult().catch(e => {
-    if (e.code !== "auth/no-current-user") console.warn("Redirect:", e.code);
-  });
-
-  fbAuth.onAuthStateChanged(user => {
-    clearTimeout(authTimeout);
+  function resolveAuth(user) {
+    if (authResolved) return;
+    authResolved = true;
     if (user) { bootUser(user); }
     else      { showAuthScreen(); }
+  }
+
+  // Timeout aggressivo: 4s max, poi mostra login
+  setTimeout(() => resolveAuth(null), 4000);
+
+  // Caso redirect Google: getRedirectResult si risolve PRIMA di onAuthStateChanged
+  fbAuth.getRedirectResult().then(result => {
+    if (result?.user) resolveAuth(result.user);
+  }).catch(e => {
+    if (e.code !== "auth/no-current-user") console.warn("Redirect error:", e.code);
   });
+
+  // Listener principale
+  fbAuth.onAuthStateChanged(user => resolveAuth(user));
 });
 
 </script>
