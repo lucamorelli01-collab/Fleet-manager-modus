@@ -1735,34 +1735,34 @@ async function bootUser(user) {
 }
 
 window.addEventListener("load", () => {
-  // Aspetta che tutto il JS sia eseguito prima di iniziare
-  setTimeout(() => {
-    let authResolved = false;
+  setTimeout(async () => {
+    if (typeof fbAuth === "undefined") { showAuthScreen(); return; }
 
-    function resolveAuth(user) {
-      if (authResolved) return;
-      authResolved = true;
+    try {
+      // Prima controlla se stiamo tornando da un redirect Google
+      const redirectResult = await fbAuth.getRedirectResult();
+      if (redirectResult && redirectResult.user) {
+        // Redirect completato — utente loggato
+        bootUser(redirectResult.user);
+        return;
+      }
+    } catch(e) {
+      console.warn("getRedirectResult:", e.code);
+    }
+
+    // Nessun redirect — controlla sessione esistente con timeout
+    let resolved = false;
+    const timer = setTimeout(() => {
+      if (!resolved) { resolved = true; showAuthScreen(); }
+    }, 5000);
+
+    fbAuth.onAuthStateChanged(user => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timer);
       if (user) { bootUser(user); }
       else      { showAuthScreen(); }
-    }
-
-    // Timeout di sicurezza: 5s poi mostra login
-    const safetyTimer = setTimeout(() => resolveAuth(null), 5000);
-
-    // Caso redirect Google
-    if (typeof fbAuth !== "undefined") {
-      fbAuth.getRedirectResult().then(result => {
-        if (result && result.user) resolveAuth(result.user);
-      }).catch(() => {});
-
-      fbAuth.onAuthStateChanged(user => {
-        clearTimeout(safetyTimer);
-        resolveAuth(user);
-      });
-    } else {
-      // Firebase non caricato
-      showAuthScreen();
-    }
+    });
   }, 100);
 });
 
