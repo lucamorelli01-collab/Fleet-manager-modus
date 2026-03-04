@@ -1324,61 +1324,53 @@ function openFleetManager() {
 
 function buildFleetManagerHTML() {
   const pActive = CURRENT_FLEET_ID === "personal";
-  const roleIcon = {admin:"👑",editor:"✏️",viewer:"👁"};
-  const roleLabel = {admin:"Admin",editor:"Editor",viewer:"Solo lettura"};
+  const roleIcon  = {admin:"👑", editor:"✏️", viewer:"👁"};
+  const roleLabel = {admin:"Admin", editor:"Editor", viewer:"Solo lettura"};
 
   const fleetRows = Object.entries(MY_FLEETS).map(([fid,f]) => {
     const active = CURRENT_FLEET_ID === fid;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;
-              background:${active?"#3d7eff18":"#0f1117"};border:1px solid ${active?"#3d7eff55":"#2e3347"}">
-      <div style="flex:1;min-width:0">
-        <div style="color:#e8eaf0;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</div>
-        <div style="color:#8b95a8;font-size:11px">${roleIcon[f.role]||""} ${roleLabel[f.role]||f.role}</div>
-      </div>
-      <div style="display:flex;gap:5px;flex-shrink:0">
-        ${active
-          ? '<span style="color:#3d7eff;font-size:11px;font-weight:700">ATTIVA</span>'
-          : `<button class="btn" onclick="switchFleet('${fid}')" style="font-size:11px;padding:3px 9px">Apri</button>`}
-        ${f.role==="admin"
-          ? `<button class="btn" onclick="openInvitePanel('${fid}')" style="font-size:11px;padding:3px 9px" title="Invita">🔗</button>`
-          : ""}
-        ${f.role!=="admin"
-          ? `<button onclick="leaveFleet('${fid}')" title="Abbandona" style="background:none;border:none;color:#ff3b3b66;cursor:pointer;font-size:18px;line-height:1">×</button>`
-          : ""}
-      </div>
-    </div>`;
-  }).join("") || '<div style="color:#8b95a8;font-size:12px;padding:4px 0 8px">Nessuna flotta condivisa ancora</div>';
+    const bg  = active ? "#3d7eff18" : "#0f1117";
+    const bdr = active ? "#3d7eff55" : "#2e3347";
+    const switchBtn = active
+      ? '<span style="color:#3d7eff;font-size:11px;font-weight:700">ATTIVA</span>'
+      : '<button class="btn" onclick="switchFleet(\'' + fid + '\')" style="font-size:11px;padding:3px 9px">Apri</button>';
+    const adminBtn = f.role === "admin"
+      ? '<button class="btn" onclick="openInvitePanel(\'' + fid + '\')" style="font-size:11px;padding:3px 9px">🔗</button>'
+      : '';
+    const leaveBtn = f.role !== "admin"
+      ? '<button onclick="leaveFleet(\'' + fid + '\')" title="Abbandona" style="background:none;border:none;color:#ff3b3b66;cursor:pointer;font-size:18px;line-height:1">×</button>'
+      : '';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;background:' + bg + ';border:1px solid ' + bdr + '">'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="color:#e8eaf0;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(f.name) + '</div>'
+      + '<div style="color:#8b95a8;font-size:11px">' + (roleIcon[f.role]||'') + ' ' + (roleLabel[f.role]||f.role) + '</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:5px;flex-shrink:0">' + switchBtn + adminBtn + leaveBtn + '</div>'
+      + '</div>';
+  }).join('') || '<div style="color:#8b95a8;font-size:12px;padding:4px 0 8px">Nessuna flotta condivisa ancora</div>';
 
-  return `<div class="modal" style="max-width:460px;max-height:85vh;overflow-y:auto">
-    <div class="modal-header">
-      <h3>🏢 Gestione flotte</h3>
-      <button class="modal-close" onclick="document.getElementById('fleet-overlay').remove()">×</button>
-    </div>
+  const pBg  = pActive ? "#3d7eff18" : "#0f1117";
+  const pBdr = pActive ? "#3d7eff55" : "#2e3347";
+  const personalBtn = pActive
+    ? '<span style="color:#3d7eff;font-size:11px;font-weight:700">ATTIVA</span>'
+    : '<button class="btn" onclick="switchFleet(\'personal\')" style="font-size:11px;padding:3px 9px">Apri</button>';
 
-    <div style="margin-bottom:16px">
-      <div style="color:#8b95a8;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px">LE MIE FLOTTE</div>
-
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;
-           background:${pActive?"#3d7eff18":"#0f1117"};border:1px solid ${pActive?"#3d7eff55":"#2e3347"}">
-        <div style="flex:1">
-          <div style="color:#e8eaf0;font-weight:600;font-size:13px">🙋 Flotta personale</div>
-          <div style="color:#8b95a8;font-size:11px">Solo tua — sempre disponibile</div>
-        </div>
-        ${pActive
-          ? '<span style="color:#3d7eff;font-size:11px;font-weight:700">ATTIVA</span>'
-          : "<button class="btn" onclick="switchFleet('personal')" style="font-size:11px;padding:3px 9px">Apri</button>"}
-      </div>
-
-      ${fleetRows}
-    </div>
-
-    <div id="fleet-panel-body"></div>
-
-    <div style="border-top:1px solid #2e3347;padding-top:14px;display:flex;gap:8px">
-      <button class="btn btn-green" onclick="showCreateFleetPanel()" style="flex:1">➕ Crea flotta</button>
-      <button class="btn" onclick="showJoinFleetPanel()" style="flex:1">🔑 Entra con codice</button>
-    </div>
-  </div>`;
+  return '<div class="modal" style="max-width:460px;max-height:85vh;overflow-y:auto">'
+    + '<div class="modal-header"><h3>🏢 Gestione flotte</h3>'
+    + '<button class="modal-close" onclick="document.getElementById(\'fleet-overlay\').remove()">×</button></div>'
+    + '<div style="margin-bottom:16px">'
+    + '<div style="color:#8b95a8;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px">LE MIE FLOTTE</div>'
+    + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:6px;background:' + pBg + ';border:1px solid ' + pBdr + '">'
+    + '<div style="flex:1"><div style="color:#e8eaf0;font-weight:600;font-size:13px">🙋 Flotta personale</div>'
+    + '<div style="color:#8b95a8;font-size:11px">Solo tua — sempre disponibile</div></div>'
+    + personalBtn + '</div>'
+    + fleetRows
+    + '</div>'
+    + '<div id="fleet-panel-body"></div>'
+    + '<div style="border-top:1px solid #2e3347;padding-top:14px;display:flex;gap:8px">'
+    + '<button class="btn btn-green" onclick="showCreateFleetPanel()" style="flex:1">➕ Crea flotta</button>'
+    + '<button class="btn" onclick="showJoinFleetPanel()" style="flex:1">🔑 Entra con codice</button>'
+    + '</div></div>';
 }
 
 function setFleetPanel(html) {
@@ -1540,43 +1532,43 @@ function showAuthScreen() {
 
 function buildAuthScreen() {
   const isLogin = AUTH_TAB === "login";
-  return `<div class="auth-screen">
-    <div class="auth-box">
-      <div style="text-align:center;margin-bottom:24px">
-        <div style="font-size:40px">🚐</div>
-        <div style="color:#e8eaf0;font-size:20px;font-weight:800;margin-top:8px">Fleet Manager</div>
-        <div style="color:#8b95a8;font-size:13px;margin-top:4px">Gestione flotta aziendale</div>
-      </div>
-      <div class="auth-tabs">
-        <button class="auth-tab ${isLogin?"active":""}" onclick="AUTH_TAB="login";document.getElementById("app").innerHTML=buildAuthScreen()">Accedi</button>
-        <button class="auth-tab ${!isLogin?"active":""}" onclick="AUTH_TAB="register";document.getElementById("app").innerHTML=buildAuthScreen()">Registrati</button>
-      </div>
-      <button class="btn-google" onclick="loginGoogle()">
-        <svg width="18" height="18" viewBox="0 0 48 48">
-          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-        </svg>
-        Continua con Google
-      </button>
-      <div class="auth-divider">oppure con email</div>
-      <div class="field"><label>Email</label>
-        <input id="auth-email" type="email" placeholder="tua@email.com" autocomplete="email"
-          onkeydown="if(event.key===\'Enter\')document.getElementById(\'auth-pwd\').focus()"/></div>
-      <div class="field"><label>Password</label>
-        <input id="auth-pwd" type="password" placeholder="min. 6 caratteri"
-          onkeydown="if(event.key===\'Enter\'){isLogin?loginEmail():registerEmail()}"/></div>
-      ${!isLogin ? `<div class="field"><label>Conferma password</label>
-        <input id="auth-pwd2" type="password" placeholder="ripeti password"
-          onkeydown="if(event.key===\'Enter\')registerEmail()"/></div>` : ""}
-      <div id="auth-error" class="auth-error"></div>
-      <button class="btn" style="width:100%;padding:11px;margin-top:8px;font-size:14px"
-        onclick="${isLogin?"loginEmail()":"registerEmail()}">
-        ${isLogin ? "🔑 Accedi" : "✨ Crea account"}
-      </button>
-    </div>
-  </div>`;
+  const activeTab  = 'class="auth-tab active"';
+  const inactiveTab = 'class="auth-tab"';
+
+  return '<div class="auth-screen">'
+    + '<div class="auth-box">'
+    + '<div style="text-align:center;margin-bottom:24px">'
+    + '<div style="font-size:40px">🚐</div>'
+    + '<div style="color:#e8eaf0;font-size:20px;font-weight:800;margin-top:8px">Fleet Manager</div>'
+    + '<div style="color:#8b95a8;font-size:13px;margin-top:4px">Gestione flotta aziendale</div>'
+    + '</div>'
+    + '<div class="auth-tabs">'
+    + '<button ' + (isLogin ? activeTab : inactiveTab) + ' onclick="AUTH_TAB=\'login\';document.getElementById(\'app\').innerHTML=buildAuthScreen()">Accedi</button>'
+    + '<button ' + (!isLogin ? activeTab : inactiveTab) + ' onclick="AUTH_TAB=\'register\';document.getElementById(\'app\').innerHTML=buildAuthScreen()">Registrati</button>'
+    + '</div>'
+    + '<button class="btn-google" onclick="loginGoogle()">'
+    + '<svg width="18" height="18" viewBox="0 0 48 48">'
+    + '<path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>'
+    + '<path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>'
+    + '<path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>'
+    + '<path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>'
+    + '</svg>Continua con Google</button>'
+    + '<div class="auth-divider">oppure con email</div>'
+    + '<div class="field"><label>Email</label>'
+    + '<input id="auth-email" type="email" placeholder="tua@email.com" autocomplete="email"'
+    + ' onkeydown="if(event.key===\'Enter\')document.getElementById(\'auth-pwd\').focus()"/></div>'
+    + '<div class="field"><label>Password</label>'
+    + '<input id="auth-pwd" type="password" placeholder="min. 6 caratteri"'
+    + ' onkeydown="if(event.key===\'Enter\'){isLogin?loginEmail():registerEmail()}"/></div>'
+    + (isLogin ? '' :
+        '<div class="field"><label>Conferma password</label>'
+        + '<input id="auth-pwd2" type="password" placeholder="ripeti password"'
+        + ' onkeydown="if(event.key===\'Enter\')registerEmail()"/></div>')
+    + '<div id="auth-error" class="auth-error"></div>'
+    + '<button class="btn" style="width:100%;padding:11px;margin-top:8px;font-size:14px"'
+    + ' onclick="' + (isLogin ? "loginEmail()" : "registerEmail()") + '">'
+    + (isLogin ? "🔑 Accedi" : "✨ Crea account")
+    + '</button></div></div>';
 }
 
 function setAuthError(msg) {
