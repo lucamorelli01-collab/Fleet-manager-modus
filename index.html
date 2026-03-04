@@ -1555,7 +1555,7 @@ async function copyVehiclesToFleet(targetFleetId) {
     // Salva nella flotta destinazione
     await fbPut(fbFleetDataUrl(targetFleetId), merged);
     const flName = MY_FLEETS[targetFleetId]?.name || targetFleetId;
-    showAlert("✅ " + toAdd.length + " veicoli copiati in "" + flName + ""!");
+    showAlert('✅ ' + toAdd.length + ' veicoli copiati in "' + flName + '"!');
   } catch(e) {
     showAlert("❌ Errore: " + e.message, false);
   }
