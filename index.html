@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Fleet Manager</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231B5299'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='white'>🚐</text></svg>">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <style>
     /* ══ MD3 COLOR TOKENS (dark scheme) ═════════════════════════════════ */
@@ -139,10 +140,26 @@
     .nav-item.active{background:var(--sec-con);color:var(--on-sec-con);font-weight:600}
     .nav-icon{font-size:20px;flex-shrink:0;width:24px;text-align:center;line-height:1}
 
+    .drawer-fleet-btn{
+      display:flex;align-items:center;gap:10px;
+      height:40px;border-radius:var(--radius-full);
+      margin:2px 8px;padding:0 14px;
+      cursor:pointer;border:none;background:none;
+      color:var(--on-sur-var);font-size:12px;font-weight:500;
+      text-align:left;width:calc(100% - 16px);
+      transition:background .15s,color .15s;white-space:nowrap;overflow:hidden;
+    }
+    .drawer-fleet-btn:hover{background:rgba(226,226,233,.08)}
+    .drawer-fleet-btn.active{background:var(--pri-con);color:var(--on-pri-con);font-weight:600}
+
     @media(min-width:1024px){
       #nav-drawer:not(.expanded) .nav-item{
         justify-content:center;padding:0;
         width:52px;border-radius:var(--radius-l);margin:2px auto;
+      }
+      #nav-drawer:not(.expanded) .drawer-fleet-btn{
+        justify-content:center;padding:0;
+        width:40px;border-radius:var(--radius-l);margin:2px auto;
       }
     }
 
@@ -241,8 +258,10 @@
     .stat-card{
       background:var(--s2);border-radius:var(--radius-l);padding:20px 18px;
       border:1px solid var(--out-var);
-      transition:background .15s;
+      transition:background .15s,box-shadow .15s,transform .15s;
     }
+    .stat-card[onclick]{cursor:pointer}
+    .stat-card[onclick]:hover{background:var(--s3);box-shadow:var(--e1);transform:translateY(-1px)}
     .stat-icon{font-size:26px;margin-bottom:10px}
     .stat-value{font-size:30px;font-weight:700;color:var(--on-sur);line-height:1;font-family:'DM Mono',monospace}
     .stat-label{font-size:12px;color:var(--on-sur-var);margin-top:5px;font-weight:500;letter-spacing:.3px}
@@ -510,6 +529,16 @@ function badge(days) {
   if (days <= 90) return `<span class="badge" style="background:rgba(168,199,250,.1);color:var(--pri)">${days}gg</span>`;
   return `<span class="badge" style="background:rgba(114,217,160,.1);color:var(--suc)">${days}gg</span>`;
 }
+
+// Restituisce il km più recente per data del registro km (o il valore salvato sul veicolo come fallback)
+function getLatestKm(vehicleId) {
+  const logs = (DATA.kmLog || [])
+    .filter(k => k.vehicleId === vehicleId && k.km > 0)
+    .sort((a, b) => new Date(b.data) - new Date(a.data));
+  if (logs.length > 0) return logs[0].km;
+  const v = (DATA.vehicles || []).find(x => x.id === vehicleId);
+  return v ? (v.km || 0) : 0;
+}
 function showAlert(msg, ok=true) {
   const el = document.getElementById("alert-banner");
   el.textContent = msg;
@@ -691,6 +720,7 @@ function render() {
     buildShell();
   }
   updateDrawer();
+  updateDrawerFleets();
   updateTopbar();
   renderContent();
 }
@@ -724,6 +754,9 @@ function buildShell() {
           <span class="nav-label">Scadenze</span>
         </button>
 
+        <div class="divider" style="margin:8px 16px"></div>
+        <div class="drawer-section">Flotte</div>
+        <div id="drawer-fleets-list"></div>
         <div class="divider" style="margin:8px 16px"></div>
 
         <div class="drawer-actions">
@@ -796,6 +829,31 @@ function updateDrawer() {
   });
 }
 
+/* ── Update drawer fleets list ────────────────────────────────── */
+function updateDrawerFleets() {
+  const container = document.getElementById('drawer-fleets-list');
+  if (!container) return;
+  
+  const personalActive = CURRENT_FLEET_ID === 'personal';
+  let html = `<button class="drawer-fleet-btn ${personalActive ? 'active' : ''}" 
+    onclick="switchFleet('personal')">
+    <span class="nav-icon">🙋</span>
+    <span class="nav-label">Personale</span>
+  </button>`;
+  
+  for (const [fid, f] of Object.entries(MY_FLEETS)) {
+    const isActive = CURRENT_FLEET_ID === fid;
+    const roleIcon = {admin:'👑', editor:'✏️', viewer:'👁'}[f.role] || '🏢';
+    html += `<button class="drawer-fleet-btn ${isActive ? 'active' : ''}" 
+      onclick="switchFleet('${fid}')">
+      <span class="nav-icon">${roleIcon}</span>
+      <span class="nav-label">${esc(f.name)}</span>
+    </button>`;
+  }
+  
+  container.innerHTML = html;
+}
+
 /* ── Update topbar title + saving indicator ───────────────────── */
 function updateTopbar() {
   const titleMap = {
@@ -866,18 +924,19 @@ function renderDashboard() {
   const scad30  = DATA.scadenze.filter(s => !s.done && daysUntil(s.scadenza) <= 30);
   const scad90  = DATA.scadenze.filter(s => !s.done && daysUntil(s.scadenza) <= 90);
   const scadScad= DATA.scadenze.filter(s => !s.done && daysUntil(s.scadenza) < 0);
-  const totalKm = DATA.vehicles.reduce((a,v) => a + (v.km||0), 0);
+  const totalKm = DATA.vehicles.reduce((a,v) => a + (getLatestKm(v.id)||0), 0);
 
   const statCards = [
-    { icon:'🚐', value: DATA.vehicles.length, label:'Veicoli', color:'var(--pri)' },
-    { icon:'⚠️', value: scad30.length,  label:'Scadenze entro 30gg', color:'var(--warn)' },
-    { icon:'🔴', value: scadScad.length, label:'Scadute',  color:'var(--err)' },
-    { icon:'📍', value: totalKm.toLocaleString('it-IT'), label:'Km totali', color:'var(--suc)' },
+    { icon:'🚐', value: DATA.vehicles.length, label:'Veicoli', color:'var(--pri)', action:"navigate('flotta')" },
+    { icon:'⚠️', value: scad30.length,  label:'Scadenze entro 30gg', color:'var(--warn)', action:"navigate('scadenze')" },
+    { icon:'🔴', value: scadScad.length, label:'Scadute',  color:'var(--err)', action:"navigate('scadenze')" },
+    { icon:'📍', value: totalKm.toLocaleString('it-IT'), label:'Km totali', color:'var(--suc)', action:null },
   ].map(s => `
-    <div class="stat-card">
+    <div class="stat-card" ${s.action ? `onclick="${s.action}"` : ''}>
       <div class="stat-icon">${s.icon}</div>
       <div class="stat-value" style="color:${s.color}">${s.value}</div>
       <div class="stat-label">${s.label}</div>
+      ${s.action ? `<div style="text-align:right;font-size:16px;color:var(--on-sur-var);opacity:0.5;margin-top:-10px;line-height:0">→</div>` : ''}
     </div>`).join('');
 
   // Urgency list
@@ -926,7 +985,7 @@ function renderFlotta() {
           <div class="v-modello">${esc(v.modello)} · ${v.anno}</div>
         </div>
         <div style="text-align:right">
-          <div class="v-km">${v.km.toLocaleString('it-IT')}</div>
+          <div class="v-km">${getLatestKm(v.id).toLocaleString('it-IT')}</div>
           <div class="v-km-label">km</div>
         </div>
       </div>
@@ -986,7 +1045,7 @@ function renderVehicleDetail() {
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
       <div>
         <div style="font-size:22px;font-weight:700;color:var(--on-sur);letter-spacing:2px;font-family:'DM Mono',monospace">${esc(v.targa)}</div>
-        <div style="font-size:14px;color:var(--on-sur-var);margin-top:4px">${esc(v.modello)} · ${v.anno} · ${v.km.toLocaleString('it-IT')} km</div>
+        <div style="font-size:14px;color:var(--on-sur-var);margin-top:4px">${esc(v.modello)} · ${v.anno} · ${getLatestKm(v.id).toLocaleString('it-IT')} km</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="openModal('editVehicle',${v.id})" style="padding:6px 14px;font-size:13px">✏️ Modifica</button>
@@ -1012,7 +1071,7 @@ function renderScadenzeTab(v) {
         <input type="checkbox" title="Segna come completata"
           style="width:17px;height:17px;accent-color:var(--suc);cursor:pointer;flex-shrink:0"
           onchange="completaScadenza(${s.id},${v.id},this.checked)"/>
-        <div>
+        <div style="cursor:pointer" onclick="openModal('editScadenza',${v.id},${s.id})">
           <span style="color:var(--on-sur);font-weight:600">${esc(s.tipo)}</span>
           ${s.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(s.note)}</div>`:""}
         </div>
@@ -1020,6 +1079,7 @@ function renderScadenzeTab(v) {
       <div style="display:flex;align-items:center;gap:8px">
         <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(s.scadenza)}</span>
         ${badge(days)}
+        <button onclick="openModal('editScadenza',${v.id},${s.id})" style="background:none;border:none;color:var(--on-sur-var)66;cursor:pointer;font-size:14px" title="Modifica">✏️</button>
         <button onclick="removeScadenza(${s.id})" style="background:none;border:none;color:var(--err)55;cursor:pointer;font-size:16px" title="Elimina">×</button>
       </div>
     </div>`;
@@ -1059,7 +1119,8 @@ function renderScadenzeTab(v) {
 function renderManutenzioniTab(v) {
   const items = DATA.manutenzioni.filter(m=>m.vehicleId===v.id).sort((a,b)=>new Date(b.data)-new Date(a.data));
   const rows = items.map(m=>`
-    <div class="row">
+    <div class="row" style="cursor:pointer;transition:background .15s" onclick="openModal('editManutenzione',${v.id},${m.id})"
+      onmouseenter="this.style.background='var(--s3)'" onmouseleave="this.style.background=''">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
         <div>
           <span style="color:var(--on-sur);font-weight:600">${esc(m.descrizione)}</span>
@@ -1067,7 +1128,7 @@ function renderManutenzioniTab(v) {
         </div>
         <div style="text-align:right">
           <div style="color:var(--warn);font-weight:700">${m.costo?`€ ${m.costo}`:"—"}</div>
-          <div style="color:var(--on-sur-var);font-size:11px">${fmtDate(m.data)}</div>
+          <div style="color:var(--on-sur-var);font-size:11px">${fmtDate(m.data)} · <span style="opacity:.5">✏️ modifica</span></div>
         </div>
       </div>
       <div style="color:var(--on-sur-var);font-size:12px;margin-top:4px">km: ${Number(m.km).toLocaleString("it-IT")}</div>
@@ -1177,12 +1238,16 @@ function renderKmTab(v) {
     : "";
 
   const rows = items.map(k=>`
-    <div class="row row-flex">
+    <div class="row row-flex" style="cursor:pointer;transition:background .15s" onclick="openModal('editKm',${v.id},${k.id})"
+      onmouseenter="this.style.background='var(--s3)'" onmouseleave="this.style.background=''">
       <div>
         <span style="color:var(--pri);font-weight:700;font-size:16px">${Number(k.km).toLocaleString("it-IT")} km</span>
         ${k.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(k.note)}</div>`:""}
       </div>
-      <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(k.data)}</span>
+      <div style="text-align:right">
+        <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(k.data)}</span>
+        <div style="color:var(--on-sur-var);font-size:11px;opacity:.5">✏️ modifica</div>
+      </div>
     </div>`).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:24px">Nessun aggiornamento km</div>`;
 
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
@@ -1194,13 +1259,17 @@ function renderKmTab(v) {
 function renderGommeTab(v) {
   const items = DATA.gomme.filter(g=>g.vehicleId===v.id).sort((a,b)=>new Date(b.data)-new Date(a.data));
   const rows = items.map(g=>`
-    <div class="row row-flex">
+    <div class="row row-flex" style="cursor:pointer;transition:background .15s" onclick="openModal('editGomma',${v.id},${g.id})"
+      onmouseenter="this.style.background='var(--s3)'" onmouseleave="this.style.background=''">
       <div>
         <span style="color:var(--on-sur);font-weight:600">${esc(g.tipo)}</span>
         ${g.marca?`<span style="color:var(--on-sur-var);font-size:12px;margin-left:8px">${esc(g.marca)}</span>`:""}
         ${g.note?`<div style="color:var(--on-sur-var);font-size:12px;margin-top:2px">${esc(g.note)}</div>`:""}
       </div>
-      <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(g.data)}</span>
+      <div style="text-align:right">
+        <span style="color:var(--on-sur-var);font-size:12px">${fmtDate(g.data)}</span>
+        <div style="color:var(--on-sur-var);font-size:11px;opacity:.5">✏️ modifica</div>
+      </div>
     </div>`).join("") || `<div style="color:var(--on-sur-var);text-align:center;padding:24px">Nessun cambio gomme registrato</div>`;
   return `<div style="display:flex;justify-content:space-between;margin-bottom:12px">
     <span style="color:var(--on-sur-var);font-size:13px">${items.length} cambi</span>
@@ -1440,7 +1509,7 @@ function renderAllScadenze() {
 // ═══════════════════════════════════════════════════════════════════════════
 // MODALS
 // ═══════════════════════════════════════════════════════════════════════════
-function openModal(type, vehicleId) {
+function openModal(type, vehicleId, itemId) {
   if (!canEdit()) return;
   const v = DATA.vehicles.find(x=>x.id===vehicleId) || {};
   const today = new Date().toISOString().split("T")[0];
@@ -1460,7 +1529,7 @@ function openModal(type, vehicleId) {
       <select id="m_tipo">${["Ordinaria","Straordinaria","Riparazione","Revisione"].map(t=>`<option>${t}</option>`).join("")}</select></div>
     <div class="field"><label>Descrizione</label><input id="m_desc" type="text" placeholder="Es. Cambio olio motore"/></div>
     <div class="field"><label>Data</label><input id="m_data" type="date" value="${today}"/></div>
-    <div class="field"><label>Km attuali</label><input id="m_km" type="number" value="${v.km||0}"/></div>
+    <div class="field"><label>Km attuali</label><input id="m_km" type="number" value="${getLatestKm(vehicleId)||0}"/></div>
     <div class="field"><label>Costo (€)</label><input id="m_costo" type="number" placeholder="0"/></div>
     <div class="field"><label>Note (opzionale)</label><textarea id="m_note" rows="3" style="width:100%;background:var(--s0);border:1px solid var(--out-var);border-radius:6px;padding:8px 12px;color:var(--on-sur);font-size:14px;resize:vertical;outline:none" placeholder="Officina, ricambi, osservazioni..."></textarea></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -1494,6 +1563,68 @@ function openModal(type, vehicleId) {
       <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
       <button class="btn" onclick="submitEditVehicle(${vehicleId})">Salva modifiche</button></div>`;
 
+  // ── EDIT SCADENZA ───────────────────────────────────────────────────────
+  if (type==="editScadenza") {
+    const s = DATA.scadenze.find(x => x.id === itemId);
+    if (!s) return;
+    body = `
+    <div class="field"><label>Tipo</label>
+      <select id="m_tipo">${["Bollo","Revisione","Tagliando","Assicurazione","Cambio gomme","Controllo freni","Altro"]
+        .map(t=>`<option ${t===s.tipo?'selected':''}>${t}</option>`).join("")}</select></div>
+    <div class="field"><label>Data scadenza</label><input id="m_scadenza" type="date" value="${s.scadenza||""}" /></div>
+    <div class="field"><label>Note (opzionale)</label><input id="m_note" type="text" value="${esc(s.note||"")}"/></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
+      <button class="btn" onclick="submitEditScadenza(${vehicleId},${itemId})">Salva</button></div>`;
+  }
+
+  // ── EDIT MANUTENZIONE ───────────────────────────────────────────────────
+  if (type==="editManutenzione") {
+    const m = DATA.manutenzioni.find(x => x.id === itemId);
+    if (!m) return;
+    body = `
+    <div class="field"><label>Tipo</label>
+      <select id="m_tipo">${["Ordinaria","Straordinaria","Riparazione","Revisione"]
+        .map(t=>`<option ${t===m.tipo?'selected':''}>${t}</option>`).join("")}</select></div>
+    <div class="field"><label>Descrizione</label><input id="m_desc" type="text" value="${esc(m.descrizione)}"/></div>
+    <div class="field"><label>Data</label><input id="m_data" type="date" value="${m.data}"/></div>
+    <div class="field"><label>Km</label><input id="m_km" type="number" value="${m.km}"/></div>
+    <div class="field"><label>Costo (€)</label><input id="m_costo" type="number" value="${m.costo||0}"/></div>
+    <div class="field"><label>Note</label><textarea id="m_note" rows="3" style="width:100%;background:var(--s0);border:1px solid var(--out-var);border-radius:6px;padding:8px 12px;color:var(--on-sur);font-size:14px;resize:vertical;outline:none">${esc(m.note||"")}</textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
+      <button class="btn" onclick="submitEditManutenzione(${vehicleId},${itemId})">Salva</button></div>`;
+  }
+
+  // ── EDIT KM ─────────────────────────────────────────────────────────────
+  if (type==="editKm") {
+    const k = DATA.kmLog.find(x => x.id === itemId);
+    if (!k) return;
+    body = `
+    <div class="field"><label>Km</label><input id="m_km" type="number" value="${k.km}"/></div>
+    <div class="field"><label>Data</label><input id="m_data" type="date" value="${k.data}"/></div>
+    <div class="field"><label>Note</label><input id="m_note" type="text" value="${esc(k.note||"")}"/></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
+      <button class="btn" onclick="submitEditKm(${vehicleId},${itemId})">Salva</button></div>`;
+  }
+
+  // ── EDIT GOMMA ──────────────────────────────────────────────────────────
+  if (type==="editGomma") {
+    const g = DATA.gomme.find(x => x.id === itemId);
+    if (!g) return;
+    body = `
+    <div class="field"><label>Tipo gomme</label>
+      <select id="m_tipo">${["Estiva","Invernale","4 stagioni"]
+        .map(t=>`<option ${t===g.tipo?'selected':''}>${t}</option>`).join("")}</select></div>
+    <div class="field"><label>Data montaggio</label><input id="m_data" type="date" value="${g.data}"/></div>
+    <div class="field"><label>Marca (opzionale)</label><input id="m_marca" type="text" value="${esc(g.marca||"")}"/></div>
+    <div class="field"><label>Note</label><input id="m_note" type="text" value="${esc(g.note||"")}"/></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
+      <button class="btn" onclick="submitEditGomma(${vehicleId},${itemId})">Salva</button></div>`;
+  }
+
   if (type==="addVehicle") body = `
     <div class="field"><label>Targa</label><input id="m_targa" type="text" placeholder="ES123AB"
       style="text-transform:uppercase;letter-spacing:2px;font-weight:700"/></div>
@@ -1507,7 +1638,9 @@ function openModal(type, vehicleId) {
   const titles = {
     addScadenza:"Aggiungi Scadenza", addManutenzione:"Aggiungi Manutenzione",
     addKm:"Aggiorna Chilometri", addGomma:"Cambio Gomme", editVehicle:"Modifica Furgone",
-    addVehicle:"Aggiungi Veicolo"
+    addVehicle:"Aggiungi Veicolo",
+    editScadenza:"Modifica Scadenza", editManutenzione:"Modifica Manutenzione",
+    editKm:"Modifica Km", editGomma:"Modifica Gomme"
   };
 
   const overlay = document.createElement("div");
@@ -1619,7 +1752,7 @@ function submitManutenzione(vid) {
   // Aggiunge automaticamente voce nel registro km
   DATA.kmLog.push({ id:DATA.nextId.km++, vehicleId:vid, km, data,
     note:`Da manutenzione: ${desc}` });
-  DATA.vehicles = DATA.vehicles.map(v=>v.id===vid?{...v,km:Math.max(v.km,km)}:v);
+  DATA.vehicles = DATA.vehicles.map(v=>v.id===vid?{...v,km:km}:v);
   saveData(); closeModal(); renderContent();
 }
 
@@ -1628,7 +1761,7 @@ function submitKm(vid) {
   DATA.kmLog.push({ id:DATA.nextId.km++, vehicleId:vid, km,
     data:document.getElementById("m_data").value,
     note:document.getElementById("m_note").value });
-  DATA.vehicles = DATA.vehicles.map(v=>v.id===vid?{...v,km:Math.max(v.km,km)}:v);
+  DATA.vehicles = DATA.vehicles.map(v=>v.id===vid?{...v,km:km}:v);
   saveData(); closeModal(); renderContent();
 }
 
@@ -1647,6 +1780,50 @@ function submitEditVehicle(vid) {
   if (!targa||!modello) return;
   DATA.vehicles = DATA.vehicles.map(v=>v.id===vid?{...v,targa,modello,anno:Number(document.getElementById("m_anno").value)||v.anno}:v);
   if (SELECTED_VEHICLE?.id===vid) SELECTED_VEHICLE = DATA.vehicles.find(v=>v.id===vid);
+  saveData(); closeModal(); renderContent();
+}
+
+function submitEditScadenza(vid, sid) {
+  const scadenza = document.getElementById('m_scadenza')?.value;
+  if (!scadenza) return;
+  DATA.scadenze = DATA.scadenze.map(s => s.id === sid
+    ? {...s, tipo:document.getElementById('m_tipo').value, scadenza, note:document.getElementById('m_note').value }
+    : s);
+  saveData(); closeModal(); renderContent();
+}
+
+function submitEditManutenzione(vid, mid) {
+  const desc = document.getElementById('m_desc')?.value;
+  if (!desc) return;
+  const km = Number(document.getElementById('m_km').value)||0;
+  DATA.manutenzioni = DATA.manutenzioni.map(m => m.id === mid
+    ? {...m,
+        tipo: document.getElementById('m_tipo').value,
+        descrizione: desc,
+        data: document.getElementById('m_data').value,
+        km,
+        costo: Number(document.getElementById('m_costo').value)||0,
+        note: document.getElementById('m_note')?.value||'' }
+    : m);
+  saveData(); closeModal(); renderContent();
+}
+
+function submitEditKm(vid, kid) {
+  const km = Number(document.getElementById('m_km')?.value)||0;
+  DATA.kmLog = DATA.kmLog.map(k => k.id === kid
+    ? {...k, km, data:document.getElementById('m_data').value, note:document.getElementById('m_note').value }
+    : k);
+  saveData(); closeModal(); renderContent();
+}
+
+function submitEditGomma(vid, gid) {
+  DATA.gomme = DATA.gomme.map(g => g.id === gid
+    ? {...g,
+        tipo: document.getElementById('m_tipo').value,
+        data: document.getElementById('m_data').value,
+        marca: document.getElementById('m_marca')?.value||'',
+        note: document.getElementById('m_note')?.value||'' }
+    : g);
   saveData(); closeModal(); renderContent();
 }
 
@@ -1709,11 +1886,20 @@ async function fbSave(data) {
 async function migrateIfNeeded() {
   try {
     const existing = await fbGet(fbUserUrl(CURRENT_USER.uid));
-    if (existing?.vehicles?.length > 0) return false; // già migrato
+    // Se l'utente ha già qualsiasi dato (anche vuoto), skip
+    if (existing !== null && existing !== undefined) return false;
+    
+    // Controlla se il path legacy esiste e ha dati reali (non demo)
     const r = await fetch(fbLegacyUrl()); // legacy era pubblico, no auth
     if (!r.ok) return false;
     const legacy = await r.json();
     if (!legacy?.vehicles) return false;
+    
+    // Verifica che non siano i dati demo comparando la prima targa
+    const demoTarghe = ["AB123CD","EF456GH","IL789MN","OP012QR","ST345UV","XY678ZA"];
+    const firstTarga = legacy.vehicles[0]?.targa;
+    if (demoTarghe.includes(firstTarga)) return false; // sono dati demo, non migrare
+
     await fbPut(fbUserUrl(CURRENT_USER.uid), legacy);
     console.log("Migrazione OK:", legacy.vehicles.length, "veicoli");
     return true;
@@ -2136,6 +2322,8 @@ async function switchFleet(fleetId) {
   document.getElementById("fleet-overlay")?.remove();
   CURRENT_FLEET_ID   = fleetId;
   CURRENT_FLEET_ROLE = fleetId==="personal" ? "admin" : (MY_FLEETS[fleetId]?.role||"viewer");
+  // Salva la flotta attiva per ripristinarla al prossimo avvio
+  localStorage.setItem('fleet_lastActive', fleetId);
   SELECTED_VEHICLE = null; VIEW = "dashboard";
   clearInterval(pollInterval);
   DATA = null;
@@ -2307,7 +2495,8 @@ function setAuthError(msg) {
 async function loginGoogle() {
   try {
     // Prova popup prima (più veloce), fallback a redirect se bloccato
-    await fbAuth.signInWithPopup(googleProvider);
+    const result = await fbAuth.signInWithPopup(googleProvider);
+    if (result && result.user) bootUser(result.user);
   } catch(e) {
     if (e.code === "auth/popup-blocked" || e.code === "auth/popup-closed-by-user") {
       // Su mobile/browser restrittivi usa redirect
@@ -2324,7 +2513,8 @@ async function loginEmail() {
   const pwd   = document.getElementById("auth-pwd")?.value||"";
   if (!email||!pwd) { setAuthError("Compila tutti i campi"); return; }
   try {
-    await fbAuth.signInWithEmailAndPassword(email, pwd);
+    const result = await fbAuth.signInWithEmailAndPassword(email, pwd);
+    if (result && result.user) bootUser(result.user);
   } catch(e) { setAuthError(authErr(e.code)); }
 }
 
@@ -2336,7 +2526,8 @@ async function registerEmail() {
   if (pwd!==pwd2)   { setAuthError("Le password non coincidono"); return; }
   if (pwd.length<6) { setAuthError("Password minimo 6 caratteri"); return; }
   try {
-    await fbAuth.createUserWithEmailAndPassword(email, pwd);
+    const result = await fbAuth.createUserWithEmailAndPassword(email, pwd);
+    if (result && result.user) bootUser(result.user);
   } catch(e) { setAuthError(authErr(e.code)); }
 }
 
@@ -2344,6 +2535,7 @@ async function doLogout() {
   clearInterval(pollInterval);
   CURRENT_USER = null;
   DATA = null;
+  localStorage.removeItem('fleet_lastActive');
   await fbAuth.signOut();
   showAuthScreen();
 }
@@ -2388,7 +2580,18 @@ async function bootUser(user) {
     setStatus("Caricamento flotte condivise...");
     await loadMyFleets();
 
-    setStatus("Caricamento flotta personale...");
+    // Ripristina l'ultima flotta selezionata dall'utente
+    const savedFleet = localStorage.getItem('fleet_lastActive');
+    if (savedFleet && savedFleet !== 'personal' && MY_FLEETS[savedFleet]) {
+      CURRENT_FLEET_ID   = savedFleet;
+      CURRENT_FLEET_ROLE = MY_FLEETS[savedFleet].role || 'viewer';
+      setStatus("Ripristino flotta " + (MY_FLEETS[savedFleet].name || savedFleet) + "...");
+    } else if (savedFleet && savedFleet !== 'personal') {
+      // Flotta salvata non più disponibile, torna su personale
+      localStorage.removeItem('fleet_lastActive');
+    }
+
+    setStatus("Caricamento flotta...");
     const val = await fbLoad();
     if (!val) {
       DATA = defaultData(); DATA.vehicles=[]; DATA.scadenze=[];
