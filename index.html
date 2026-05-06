@@ -1519,6 +1519,7 @@ function openModal(type, vehicleId, itemId) {
     <div class="field"><label>Tipo</label>
       <select id="m_tipo">${["Bollo","Revisione","Tagliando","Assicurazione","Cambio gomme","Controllo freni","Altro"].map(t=>`<option>${t}</option>`).join("")}</select></div>
     <div class="field"><label>Data scadenza</label><input id="m_scadenza" type="date"/></div>
+    <div class="field"><label>Rinnova dopo (mesi)</label><input id="m_rinnovo" type="number" placeholder="Es. 12 (lascia vuoto per non rinnovare)" min="1"/></div>
     <div class="field"><label>Note (opzionale)</label><input id="m_note" type="text"/></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
@@ -1572,6 +1573,7 @@ function openModal(type, vehicleId, itemId) {
       <select id="m_tipo">${["Bollo","Revisione","Tagliando","Assicurazione","Cambio gomme","Controllo freni","Altro"]
         .map(t=>`<option ${t===s.tipo?'selected':''}>${t}</option>`).join("")}</select></div>
     <div class="field"><label>Data scadenza</label><input id="m_scadenza" type="date" value="${s.scadenza||""}" /></div>
+    <div class="field"><label>Rinnova dopo (mesi)</label><input id="m_rinnovo" type="number" value="${s.rinnovo_mesi||""}" placeholder="Es. 12 (vuoto = no rinnovo)" min="1"/></div>
     <div class="field"><label>Note (opzionale)</label><input id="m_note" type="text" value="${esc(s.note||"")}"/></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeModal()">Annulla</button>
@@ -1676,9 +1678,6 @@ function removeScadenza(id) {
   saveData(); renderContent();
 }
 
-// Mesi da aggiungere per tipo scadenza
-const RINNOVO_MESI = { "Bollo": 12, "Revisione": 24, "Tagliando": 12, "Assicurazione": 12 };
-
 function completaScadenza(scadId, vehicleId, checked) {
   if (!canEdit()) { setTimeout(()=>renderContent(),0); return; }
   // setTimeout evita che il re-render distrugga il checkbox mentre gestisce l'evento
@@ -1692,13 +1691,13 @@ function completaScadenza(scadId, vehicleId, checked) {
       saveData(); renderContent(); return;
     }
 
-    const mesi = RINNOVO_MESI[s.tipo.trim()];
+    const mesi = s.rinnovo_mesi;
 
     // Marca la vecchia come completata (storico) — NON eliminare
     s.done = true;
     s.dataCompletata = new Date().toISOString().split("T")[0];
 
-    if (mesi) {
+    if (mesi && mesi > 0) {
       // Crea nuova scadenza partendo dalla data della vecchia
       const base = s.scadenza ? new Date(s.scadenza) : new Date();
       base.setMonth(base.getMonth() + mesi);
@@ -1708,6 +1707,7 @@ function completaScadenza(scadId, vehicleId, checked) {
         vehicleId,
         tipo: s.tipo,
         scadenza: nuovaData,
+        rinnovo_mesi: mesi,
         note: s.note || "",
         done: false
       });
@@ -1733,8 +1733,11 @@ function saveNote(vehicleId) {
 function submitScadenza(vid) {
   const scadenza = document.getElementById("m_scadenza")?.value;
   if (!scadenza) return;
+  const rm = document.getElementById("m_rinnovo")?.value;
+  const rinnovo_mesi = rm ? Number(rm) : null;
   DATA.scadenze.push({ id:DATA.nextId.scadenza++, vehicleId:vid,
     tipo:document.getElementById("m_tipo").value, scadenza,
+    rinnovo_mesi, done: false,
     note:document.getElementById("m_note").value });
   saveData(); closeModal(); renderContent();
 }
@@ -1786,8 +1789,10 @@ function submitEditVehicle(vid) {
 function submitEditScadenza(vid, sid) {
   const scadenza = document.getElementById('m_scadenza')?.value;
   if (!scadenza) return;
+  const rm = document.getElementById("m_rinnovo")?.value;
+  const rinnovo_mesi = rm ? Number(rm) : null;
   DATA.scadenze = DATA.scadenze.map(s => s.id === sid
-    ? {...s, tipo:document.getElementById('m_tipo').value, scadenza, note:document.getElementById('m_note').value }
+    ? {...s, tipo:document.getElementById('m_tipo').value, scadenza, rinnovo_mesi, note:document.getElementById('m_note').value }
     : s);
   saveData(); closeModal(); renderContent();
 }
@@ -1976,13 +1981,26 @@ const toArr = (v) => {
 };
 
 function normalizeData(val) {
+  const scadenze = toArr(val.scadenze);
+  const manutenzioni = toArr(val.manutenzioni);
+  const kmLog = toArr(val.kmLog);
+  const gomme = toArr(val.gomme);
+  
+  const mx = arr => arr.length > 0 ? Math.max(...arr.map(x=>Number(x.id)||0))+1 : 1;
+  const nid = val.nextId || {};
+
   return {
     vehicles:     toArr(val.vehicles),
-    scadenze:     toArr(val.scadenze),
-    manutenzioni: toArr(val.manutenzioni),
-    kmLog:        toArr(val.kmLog),
-    gomme:        toArr(val.gomme),
-    nextId:       val.nextId || {scadenza:10,manutenzione:1,km:1,gomma:1}
+    scadenze,
+    manutenzioni,
+    kmLog,
+    gomme,
+    nextId: {
+      scadenza: Math.max(nid.scadenza || 1, mx(scadenze)),
+      manutenzione: Math.max(nid.manutenzione || 1, mx(manutenzioni)),
+      km: Math.max(nid.km || 1, mx(kmLog)),
+      gomma: Math.max(nid.gomma || 1, mx(gomme))
+    }
   };
 }
 
